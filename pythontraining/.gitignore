@@ -1,0 +1,15 @@
+# PyCharm Einstellungen
+.idea/
+cmake-build-*/
+out/
+
+# Python Cache & Virtuelle Umgebungen
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+ENV/
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db
