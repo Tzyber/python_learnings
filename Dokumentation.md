@@ -15,12 +15,19 @@
    - [SRP – Single Responsibility Principle](#61-srp--single-responsibility-principle)
    - [OCP – Open/Closed Principle](#62-ocp--openclosed-principle)
    - [DIP – Dependency Inversion Principle](#63-dip--dependency-inversion-principle)
-7. [Polymorphie](#7-polymorphie)
-   - [Polymorphie durch Vererbung](#71-polymorphie-durch-vererbung)
-   - [Polymorphie durch Duck Typing](#72-polymorphie-durch-duck-typing)
-   - [Polymorphie mit gemeinsamen Schnittstellen](#73-polymorphie-mit-gemeinsamen-schnittstellen)
-   - [Polymorphie im spielerischen Kontext](#74-polymorphie-im-spielerischen-kontext)
-8. [Praxisprojekt – Modulares Smart Home](#8-praxisprojekt--modulares-smart-home)
+7. [Dependency Injection (DI)](#7-dependency-injection-di)
+   - [DI ohne Abstraktion – das Problem](#71-di-ohne-abstraktion--das-problem)
+   - [DI mit Konstruktor-Injektion – die Lösung](#72-di-mit-konstruktor-injektion--die-lösung)
+   - [DI mit abstrakter Basisklasse](#73-di-mit-abstrakter-basisklasse)
+   - [DI im Web-API-Kontext](#74-di-im-web-api-kontext)
+   - [DI testen mit Mock-Objekten](#75-di-testen-mit-mock-objekten)
+   - [Modulstruktur – main.py & Importe](#76-modulstruktur--mainpy--importe)
+8. [Polymorphie](#8-polymorphie)
+   - [Polymorphie durch Vererbung](#81-polymorphie-durch-vererbung)
+   - [Polymorphie durch Duck Typing](#82-polymorphie-durch-duck-typing)
+   - [Polymorphie mit gemeinsamen Schnittstellen](#83-polymorphie-mit-gemeinsamen-schnittstellen)
+   - [Polymorphie im spielerischen Kontext](#84-polymorphie-im-spielerischen-kontext)
+9. [Praxisprojekt – Modulares Smart Home](#9-praxisprojekt--modulares-smart-home)
 
 ---
 
@@ -698,7 +705,328 @@ NotificationService(PushNotificationSender()).send_notification("Push kommt!")
 
 ---
 
-## 7. Polymorphie
+## 7. Dependency Injection (DI)
+
+### 🔹 Warum?
+
+**Dependency Injection (DI)** ist ein Entwurfsmuster, bei dem eine Klasse ihre Abhängigkeiten **nicht selbst erstellt**, sondern sie von außen **übergeben bekommt**. Das Ziel ist die **Entkopplung** von Klassen: Die Klasse weiß nur, *was* eine Abhängigkeit tun soll – nicht, *wer* es konkret macht. Das macht den Code **testbarer**, **flexibler** und leichter **wartbar**.
+
+### 🔹 DI vs. kein DI – auf einen Blick
+
+| Ohne DI | Mit DI |
+|---|---|
+| Klasse erstellt Abhängigkeit selbst (`self.x = KlasseX()`) | Abhängigkeit wird im Konstruktor übergeben |
+| Fest an eine Implementierung gebunden | Flexibel austauschbar |
+| Schlecht testbar | Leicht durch Mock-Objekte testbar |
+| Verstößt gegen DIP | Entspricht dem Dependency Inversion Principle |
+
+---
+
+### 7.1 DI ohne Abstraktion – das Problem
+
+#### 🔹 Beispiel
+
+> Datei: `Dependency_injection/Beispiel DI.py`
+
+```python
+class FileWriter:
+    def write(self, text):
+        print(f"Schreibe in Datei: {text}")
+
+class ReportService:
+    def __init__(self):
+        self.writer = FileWriter()  # Feste Abhängigkeit – nur FileWriter möglich!
+
+    def create_report(self, content):
+        self.writer.write(content)
+
+service = ReportService()
+service.create_report("Umsatzbericht 2026")
+```
+
+**Problem:** `ReportService` ist fest an `FileWriter` gebunden. Ein Wechsel zu Konsolen- oder Datenbankausgabe erfordert eine Änderung der Klasse selbst.
+
+---
+
+### 7.2 DI mit Konstruktor-Injektion – die Lösung
+
+#### 🔹 Wie?
+
+Die Abhängigkeit wird als Parameter an den Konstruktor übergeben. Die Klasse kennt nur die erwartete **Methode** (`write`), nicht die konkrete Klasse.
+
+#### 🔹 Beispiel
+
+> Datei: `Dependency_injection/Beispiel DI Lösung.py`
+
+```python
+class FileWriter:
+    def write(self, text):
+        print(f"Schreibe in Datei: {text}")
+
+class ConsoleWriter:
+    def write(self, text):
+        print(f"Konsolenausgabe: {text}")
+
+class ReportService:
+    def __init__(self, writer):  # Abhängigkeit wird injiziert
+        self.writer = writer
+
+    def create_report(self, content):
+        self.writer.write(content)
+
+service1 = ReportService(FileWriter())
+service2 = ReportService(ConsoleWriter())
+
+service1.create_report("Umsatzbericht 2026")  # → Schreibe in Datei: ...
+service2.create_report("Testbericht")          # → Konsolenausgabe: ...
+```
+
+**Vorteil:** `ReportService` muss nie geändert werden, egal welche Ausgabe verwendet wird.
+
+---
+
+### 7.3 DI mit abstrakter Basisklasse
+
+Für noch mehr Sicherheit kombiniert man DI mit einer **abstrakten Basisklasse** (ABC). So wird erzwungen, dass jede injizierte Klasse die erwartete Methode tatsächlich implementiert.
+
+#### 🔹 Beispiel – Benachrichtigungssystem ohne DI
+
+> Datei: `Dependency_injection/Benarichtigungssystem_ohne_DI.py`
+
+```python
+class Emailsender:
+    def send_email(self, msg):
+        print("sending email with:", msg)
+
+class NotificationSender:
+    def __init__(self):
+        self.email = Emailsender()  # Fest verdrahtet – kein Wechsel möglich!
+
+    def notification(self, msg):
+        self.email.send_email(msg)
+```
+
+#### 🔹 Beispiel – Benachrichtigungssystem mit DI & ABC
+
+> Datei: `Dependency_injection/Benarichtigungssystem_Mit_DI.py`
+
+```python
+from abc import ABC, abstractmethod
+
+class NotificationSender(ABC):
+    @abstractmethod
+    def send_notification(self, message):
+        pass
+
+class EmailSender(NotificationSender):
+    def send_notification(self, message):
+        print(f"📧 E-Mail: {message}")
+
+class SMSSender(NotificationSender):
+    def send_notification(self, message):
+        print(f"📱 SMS: {message}")
+
+class FaxSender(NotificationSender):
+    def send_notification(self, message):
+        print(f"📠 Fax: {message}")
+
+class NotificationService:
+    def __init__(self, sender: NotificationSender):
+        self.sender = sender
+
+    def send_notification(self, message):
+        self.sender.send_notification(message)
+
+NotificationService(SMSSender()).send_notification("hallo")    # → 📱 SMS: hallo
+NotificationService(EmailSender()).send_notification("hallo")  # → 📧 E-Mail: hallo
+NotificationService(FaxSender()).send_notification("hallo")    # → 📠 Fax: hallo
+```
+
+#### 🔹 Beispiel – Kaffeemaschine
+
+> Datei: `Dependency_injection/Kaffeemaschiene.py` & `Kaffeemaschiene_dependencyinjection.py`
+
+```python
+# ❌ Ohne DI – fest verdrahtet
+class Electricheater:
+    def heat(self):
+        print("heating water")
+
+class CoffeeMachine:
+    def __init__(self, electricity):
+        self.electricity = electricity  # Nur Strom möglich!
+
+    def make_coffee(self):
+        self.electricity.heat()
+        print("Making coffee")
+
+# ✅ Mit DI & ABC – flexibel
+from abc import ABC, abstractmethod
+
+class Heater(ABC):
+    @abstractmethod
+    def heat(self):
+        pass
+
+class ElectricHeater(Heater):
+    def heat(self):
+        print("heating water with electricity")
+
+class GasHeater(Heater):
+    def heat(self):
+        print("heating water with gas")
+
+class CoffeMachine:
+    def __init__(self, heater: Heater):
+        self.heater = heater            # Beliebige Heizquelle injizierbar!
+
+    def make_coffee(self):
+        self.heater.heat()
+        print("making coffee")
+
+CoffeMachine(ElectricHeater()).make_coffee()  # → mit Strom
+CoffeMachine(GasHeater()).make_coffee()       # → mit Gas
+```
+
+---
+
+### 7.4 DI im Web-API-Kontext
+
+DI ist besonders wertvoll, wenn man zwischen **Produktions-** und **Testdaten** wechseln möchte – z. B. in einer Web-API.
+
+#### 🔹 Beispiel – ohne DI
+
+> Datei: `Dependency_injection/Web_API_ohne_Di.py`
+
+```python
+class DatabaseRepository:
+    def get_data(self):
+        return ["laptop", "smartphone", "tablet"]
+
+class ProductController:
+    def __init__(self):
+        self.repository = DatabaseRepository()  # Fest verdrahtet!
+
+    def get_products(self):
+        products = self.repository.get_data()
+        print(f"Produkte: {products}")
+```
+
+#### 🔹 Beispiel – mit DI
+
+> Datei: `Dependency_injection/Web_API_DI.py`
+
+```python
+from abc import ABC, abstractmethod
+
+class ProductRepository(ABC):
+    @abstractmethod
+    def get_product(self):
+        pass
+
+class DatabaseRepository(ProductRepository):
+    def get_product(self):
+        return "Laptop (999€)"
+
+class InMemoryRepository(ProductRepository):
+    def get_product(self):
+        return "Smartphone (499€)"           # Ideal für Tests!
+
+class ProductController:
+    def __init__(self, repository: ProductRepository):
+        self.repository = repository
+
+    def get_products(self):
+        product = self.repository.get_product()
+        print(f"Ergebnis der API: {product}")
+
+# Produktion:
+ProductController(DatabaseRepository()).get_products()   # → Laptop (999€)
+# Test / Entwicklung:
+ProductController(InMemoryRepository()).get_products()   # → Smartphone (499€)
+```
+
+**Vorteil:** Ohne eine echte Datenbank testen – einfach `InMemoryRepository` injizieren.
+
+---
+
+### 7.5 DI testen mit Mock-Objekten
+
+Durch DI kann man Abhängigkeiten im Test durch **Mock-Objekte** ersetzen. Ein Mock simuliert das Verhalten einer Klasse, ohne echte Logik auszuführen.
+
+#### 🔹 Beispiel – Unittest mit MagicMock
+
+> Datei: `Dependency_injection/testing_notification.py`
+
+```python
+import unittest
+from unittest.mock import MagicMock
+from Benarichtigungssystem_Mit_DI import NotificationService, NotificationSender
+
+class TestNotificationService(unittest.TestCase):
+    def test_send_notification(self):
+        mock_sender = MagicMock(spec=NotificationSender)   # Simulierter Sender
+        service = NotificationService(mock_sender)
+        service.send_notification("Testnachricht")
+        mock_sender.send_notification.assert_called_once()  # Wurde die Methode aufgerufen?
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+**Erklärung:**
+- `MagicMock(spec=NotificationSender)` erstellt ein Objekt, das sich wie `NotificationSender` verhält, aber nichts wirklich tut.
+- `assert_called_once()` prüft, ob `send_notification` genau einmal aufgerufen wurde.
+- **Kein echter E-Mail/SMS-Versand** im Test – schnell, zuverlässig, isoliert.
+
+| Begriff | Bedeutung |
+|---|---|
+| `MagicMock` | Simuliertes Objekt für Tests |
+| `spec=KlassenName` | Mock verhält sich wie diese Klasse |
+| `assert_called_once()` | Prüft, ob die Methode exakt einmal aufgerufen wurde |
+
+---
+
+### 7.6 Modulstruktur – main.py & Importe
+
+#### 🔹 Warum?
+
+In größeren Projekten trennt man **Logik** (Funktionen, Klassen) von der **Ablaufsteuerung** (was beim Programmstart passiert). Die `main.py` enthält nur den Einstiegspunkt – sie importiert aus Modulen, schreibt aber keine wiederverwendbare Logik selbst.
+
+#### 🔹 Beispiel
+
+> Datei: `Dependency_injection/main.py` & `Dependency_injection/rechner/rechner.py`
+
+```python
+# rechner.py – NUR Logik, keine Ablaufsteuerung
+def addieren(a, b):
+    return a + b
+
+def subtrahieren(a, b):
+    return a - b
+```
+
+```python
+# main.py – NUR Ablauf, importiert aus Modulen
+import rechner.rechner as rechner
+
+if __name__ == "__main__":   # Verhindert, dass der Code beim Import ausgeführt wird
+    ergebnis = rechner.addieren(10, 5)
+    print(f"Das Ergebnis ist: {ergebnis}")  # → 15
+```
+
+#### 🔹 Wichtige Regeln
+
+| Regel | Bedeutung |
+|---|---|
+| Keine Ablauflogik in Modulen | Module nur für Funktionen/Klassen verwenden |
+| `if __name__ == "__main__":` | Schützt Ablaufcode vor ungewollter Ausführung beim Import |
+| Nie eine `main.py` importieren | `main.py` ist Einstiegspunkt, kein Modul |
+| Importe nur in `main.py` oder Modulen | Nicht kreisförmig importieren |
+
+---
+
+## 8. Polymorphie
 
 ### 🔹 Warum?
 
@@ -714,7 +1042,7 @@ NotificationService(PushNotificationSender()).send_notification("Push kommt!")
 
 ---
 
-### 7.1 Polymorphie durch Vererbung
+### 8.1 Polymorphie durch Vererbung
 
 #### 🔹 Warum?
 
@@ -754,7 +1082,7 @@ alle_fahrzeuge_bewegen(alle_fahrzeuge)
 
 ---
 
-### 7.2 Polymorphie durch Duck Typing
+### 8.2 Polymorphie durch Duck Typing
 
 #### 🔹 Warum?
 
@@ -799,7 +1127,7 @@ benachrichtigung_versenden(PushNotification(), "Push!")
 
 ---
 
-### 7.3 Polymorphie mit gemeinsamen Schnittstellen
+### 8.3 Polymorphie mit gemeinsamen Schnittstellen
 
 #### 🔹 Warum?
 
@@ -847,7 +1175,7 @@ print("Gesamtkosten:", gesamt_gehalt(mitarbeiter), "€")  # → 6650 €
 
 ---
 
-### 7.4 Polymorphie im spielerischen Kontext
+### 8.4 Polymorphie im spielerischen Kontext
 
 #### 🔹 Warum?
 
@@ -893,7 +1221,7 @@ zoo_show(show)
 
 ---
 
-## 8. Praxisprojekt – Modulares Smart Home
+## 9. Praxisprojekt – Modulares Smart Home
 
 ### 🔹 Warum?
 
@@ -1028,6 +1356,11 @@ smarthome.remove_device(licht1)    # → Licht wird entfernt
 | SRP | Eine Klasse = eine Aufgabe | `srp_aufgabe1.py` |
 | OCP | Erweiterbar ohne bestehenden Code zu ändern | `ocp_aufgabe1.py` |
 | DIP | Abhängig von Abstraktionen, nicht von konkreten Klassen | `DIP_Aufgabe1.py` |
+| Dependency Injection (Grundprinzip) | Abhängigkeiten von außen übergeben statt selbst erstellen | `Beispiel DI.py`, `Beispiel DI Lösung.py` |
+| DI mit ABC | Abstrakte Schnittstelle + Injektion für maximale Flexibilität | `Benarichtigungssystem_Mit_DI.py`, `Kaffeemaschiene_dependencyinjection.py` |
+| DI im Web-API-Kontext | Produktions- und Testdaten-Repository austauschbar | `Web_API_DI.py`, `Web_API_ohne_Di.py` |
+| DI testen mit Mocks | `unittest.mock.MagicMock` ersetzt echte Abhängigkeiten im Test | `testing_notification.py` |
+| Modulstruktur & `main.py` | Logik von Ablauf trennen, `if __name__ == "__main__":` | `main.py`, `rechner/rechner.py` |
 | Polymorphie durch Vererbung | Unterklassen überschreiben Basisklassen-Methoden | `polymorphie_durch_vererbung.py` |
 | Duck Typing | Kein Erben nötig – gleiche Methode genügt | `polymorphie_durch_duck_typing.py` |
 | Polymorphie mit Schnittstellen | Abstrakte Klasse erzwingt gemeinsame Methoden | `polymorhpie_mit_gemiensamen_Schnittstellen.py` |
