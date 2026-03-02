@@ -10,6 +10,6 @@ class ProductController:
         products = self.repository.get_data()
         print(f"Produkte: {products}")
 
-
+# Ohne Dependency Injection: Der Controller ist fest an die Datenquelle gebunden
 pr = ProductController()
 pr.get_products()
