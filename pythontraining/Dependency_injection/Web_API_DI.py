@@ -19,7 +19,7 @@ class ProductController:
 
     def get_products(self):
         product = self.repository.get_product()
-        print(f"---  Rufe Daten ab ---")
+        print("---  Rufe Daten ab ---")
         print(f"Ergebnis der API: {product}")
 
 
