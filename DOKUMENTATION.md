@@ -15,6 +15,12 @@
    - [SRP – Single Responsibility Principle](#61-srp--single-responsibility-principle)
    - [OCP – Open/Closed Principle](#62-ocp--openclosed-principle)
    - [DIP – Dependency Inversion Principle](#63-dip--dependency-inversion-principle)
+7. [Polymorphie](#7-polymorphie)
+   - [Polymorphie durch Vererbung](#71-polymorphie-durch-vererbung)
+   - [Polymorphie durch Duck Typing](#72-polymorphie-durch-duck-typing)
+   - [Polymorphie mit gemeinsamen Schnittstellen](#73-polymorphie-mit-gemeinsamen-schnittstellen)
+   - [Polymorphie im spielerischen Kontext](#74-polymorphie-im-spielerischen-kontext)
+8. [Praxisprojekt – Modulares Smart Home](#8-praxisprojekt--modulares-smart-home)
 
 ---
 
@@ -148,6 +154,46 @@ class banktresor:
 ```
 
 **Warum hier `private`?** Die PIN darf niemals von außen gelesen oder geändert werden – das wäre ein Sicherheitsrisiko. Mit `__pin` verhindert Python den direkten Zugriff.
+
+### 🔹 Beispiel – Fahrzeug mit geschütztem Status
+
+> Datei: `privat,public,protected/Fahrzeug_mit_geschuetzten_Status.py`
+
+```python
+class Fahrzeug:
+    def __init__(self, marke, geschwindigkeit, kilometerstand):
+        self._marke = marke                      # PROTECTED → nur Klasse & Unterklassen
+        self.__geschwindigkeit = geschwindigkeit  # PRIVATE → nur diese Klasse
+        self.__kilometerstand = kilometerstand    # PRIVATE → nur diese Klasse
+
+    def get_geschwindigkeit(self):
+        return self.__geschwindigkeit
+
+    def set_geschwindigkeit(self, neue_geschwindigkeit):
+        if neue_geschwindigkeit >= 0:
+            self.__geschwindigkeit = neue_geschwindigkeit
+            print("Geschwindigkeit aktualisiert auf:", neue_geschwindigkeit, "km/h")
+        else:
+            print("Fehler! Ungültiger Geschwindigkeitseintrag!")
+
+    def get_kilometerstand(self):
+        return self.__kilometerstand
+
+    def set_kilometerstand(self, neue_kilometerstand):
+        if neue_kilometerstand >= 0 and neue_kilometerstand >= self.__kilometerstand:
+            self.__kilometerstand = neue_kilometerstand
+            print("Kilometerstand aktualisiert auf:", neue_kilometerstand)
+        else:
+            print("Fehler! Ungültiger Kilometerstand!")
+
+auto = Fahrzeug("VW", 80, 50000)
+auto.set_geschwindigkeit(-5)   # → Fehler
+auto.set_geschwindigkeit(140)  # → OK
+auto.set_kilometerstand(55000) # → OK
+auto.set_kilometerstand(-100)  # → Fehler
+```
+
+**Warum hier protected & private kombinieren?** Die Marke (`_marke`) soll von Unterklassen (z. B. `Elektroauto`) lesbar sein, aber Geschwindigkeit und Kilometerstand werden über Getter/Setter mit Validierungslogik geschützt.
 
 ---
 
@@ -428,6 +474,39 @@ zahlung.zahlung(100)       # → +100 €
 zahlung.zahlung(110, "Kreditkarte")  # → -110 € mit Kreditkarte
 ```
 
+### 🔹 Beispiel – Multidispatch vollständig in einer Klasse (Aufgabe 3)
+
+> Datei: `aufgabe3_multidispatch_in_Klasse.py`
+
+```python
+from multipledispatch import dispatch
+
+class MuldidispatchKlasse:
+    @dispatch(int, int)
+    def kombinieren(self, a, b):
+        print("Die Summe der Zahlen ist:", a + b)    # int + int → Addition
+
+    @dispatch(str, str)
+    def kombinieren(self, a, b):
+        print("Kombination lautet:", a, b)            # str + str → Verkettung
+
+    @dispatch(list, list)
+    def kombinieren(self, a, b):
+        print("Die kombinierte Liste lautet:", a + b) # list + list → Zusammenführen
+
+    @dispatch(int, float)
+    def kombinieren(self, a, b):
+        print("Ergebnis int × float:", a * b)         # int × float → Produkt
+
+kombination = MuldidispatchKlasse()
+kombination.kombinieren(5, 10)              # → 15
+kombination.kombinieren("Hallo", "Welt")   # → Hallo Welt
+kombination.kombinieren([1, 2], [3, 4])    # → [1, 2, 3, 4]
+kombination.kombinieren(3, 2.5)            # → 7.5
+```
+
+**Warum eine eigene Klasse?** Das kapselt alle Dispatch-Varianten sauber in einem Objekt. So kann man mehrere Instanzen erstellen und die Logik wiederverwendbar gestalten – ideal für z. B. Berechnungsmodule.
+
 ### 🔹 Multidispatch vs. if-isinstance
 
 ```python
@@ -619,20 +698,343 @@ NotificationService(PushNotificationSender()).send_notification("Push kommt!")
 
 ---
 
-## 🔚 Zusammenfassung
+## 7. Polymorphie
+
+### 🔹 Warum?
+
+**Polymorphie** (griech. „Vielgestaltigkeit") bedeutet, dass verschiedene Klassen eine **gleich benannte Methode** besitzen, die sich aber unterschiedlich verhält. So kann man Code schreiben, der mit beliebigen Objekten arbeitet – solange diese die erwartete Methode besitzen. Das Ergebnis: kürzerer, flexibler und leichter erweiterbarer Code.
+
+### 🔹 Übersicht der Arten
+
+| Art | Beschreibung |
+|---|---|
+| **Durch Vererbung** | Unterklassen überschreiben Methoden einer abstrakten Basisklasse |
+| **Duck Typing** | Kein Erben nötig – jedes Objekt mit der richtigen Methode funktioniert |
+| **Gemeinsame Schnittstellen** | Abstrakte Klasse gibt Methoden vor, die alle Unterklassen implementieren müssen |
+
+---
+
+### 7.1 Polymorphie durch Vererbung
+
+#### 🔹 Warum?
+
+Wenn mehrere Klassen eine gemeinsame Elternklasse haben, kann man alle Objekte gleich behandeln – obwohl jede Klasse das Verhalten individuell umsetzt. Man muss im Code nicht mehr prüfen, welche Klasse ein Objekt ist.
+
+#### 🔹 Beispiel
+
+> Datei: `polymorphie/polymorphie_durch_vererbung.py`
+
+```python
+from abc import ABC, abstractmethod
+
+class Fahrzeug(ABC):
+    @abstractmethod
+    def bewegen(self):
+        pass
+
+class Fahrrad(Fahrzeug):
+    def bewegen(self):
+        print("Das Fahrrad fährt auf zwei Rädern los")
+
+class Boot(Fahrzeug):
+    def bewegen(self):
+        print("Das Boot fährt über das Wasser")
+
+def alle_fahrzeuge_bewegen(fahrzeuge):
+    for fahrzeug in fahrzeuge:
+        fahrzeug.bewegen()   # → jedes Objekt reagiert anders, Aufruf ist identisch
+
+alle_fahrzeuge = [Fahrrad(), Boot()]
+alle_fahrzeuge_bewegen(alle_fahrzeuge)
+# → Das Fahrrad fährt auf zwei Rädern los
+# → Das Boot fährt über das Wasser
+```
+
+**Fazit:** Die Funktion `alle_fahrzeuge_bewegen` muss **nicht wissen**, ob es ein Fahrrad oder ein Boot ist – sie ruft einfach `.bewegen()` auf. Das ist Polymorphie durch Vererbung.
+
+---
+
+### 7.2 Polymorphie durch Duck Typing
+
+#### 🔹 Warum?
+
+In Python gilt: **„If it walks like a duck and quacks like a duck, it's a duck."** Das bedeutet: Es ist egal, von welcher Klasse ein Objekt stammt – solange es die erwartete Methode hat, funktioniert es. Keine Vererbung nötig!
+
+#### 🔹 Beispiel
+
+> Datei: `polymorphie/polymorphie_durch_duck_typing.py`
+
+```python
+class Email:
+    def senden(self, nachricht):
+        print("Email wird versendet:", nachricht)
+
+class Sms:
+    def senden(self, nachricht):
+        print("SMS wird versendet:", nachricht)
+
+class PushNotification:
+    def senden(self, nachricht):
+        print("Push Notification wird versendet:", nachricht)
+
+class Whatsapp:
+    def senden(self, nachricht):
+        print("Whatsapp Nachricht wird versendet:", nachricht)
+
+def benachrichtigung_versenden(dienst, nachricht):
+    dienst.senden(nachricht)  # → funktioniert mit JEDER Klasse, die .senden() hat!
+
+benachrichtigung_versenden(Sms(), "Hallo, das ist eine SMS!")
+benachrichtigung_versenden(Email(), "Hallo per E-Mail!")
+benachrichtigung_versenden(PushNotification(), "Push!")
+```
+
+**Fazit:** `Email`, `Sms`, `Whatsapp` erben von **nichts** – trotzdem funktioniert `benachrichtigung_versenden` mit allen, weil alle eine `.senden()`-Methode haben. Das ist Duck Typing.
+
+| Polymorphie durch Vererbung | Duck Typing |
+|---|---|
+| Erbt von einer Basisklasse | Kein Erben nötig |
+| `isinstance(x, Basisklasse)` wäre `True` | Kein gemeinsamer Typ |
+| Klare Struktur, gut bei großen Projekten | Flexibel, pythonisch |
+
+---
+
+### 7.3 Polymorphie mit gemeinsamen Schnittstellen
+
+#### 🔹 Warum?
+
+Eine abstrakte Basisklasse definiert eine **verbindliche Schnittstelle** – jede Unterklasse **muss** alle abstrakten Methoden implementieren. Das garantiert, dass alle Objekte eine bestimmte Funktionalität besitzen, auch wenn sie sich unterschiedlich verhalten.
+
+#### 🔹 Beispiel – Gehaltssystem
+
+> Datei: `polymorphie/polymorhpie_mit_gemiensamen_Schnittstellen.py`
+
+```python
+from abc import ABC, abstractmethod
+
+class Mitarbeiter(ABC):
+    @abstractmethod
+    def berechne_gehalt(self):
+        pass
+
+class Festangestellter(Mitarbeiter):
+    def berechne_gehalt(self):
+        return 3000                        # fixes Monatsgehalt
+
+class Freelancer(Mitarbeiter):
+    def __init__(self, stunden, stundenlohn):
+        self.stunden = stunden
+        self.stundenlohn = stundenlohn
+
+    def berechne_gehalt(self):
+        return self.stunden * self.stundenlohn  # variabel je nach Stunden
+
+class Praktikant(Mitarbeiter):
+    def berechne_gehalt(self):
+        return 450                         # fixer Minijob-Betrag
+
+def gesamt_gehalt(mitarbeiter_liste):
+    gesamtsumme = 0
+    for mitarbeiter in mitarbeiter_liste:
+        gesamtsumme += mitarbeiter.berechne_gehalt()
+    return gesamtsumme
+
+mitarbeiter = [Festangestellter(), Freelancer(160, 20), Praktikant()]
+print("Gesamtkosten:", gesamt_gehalt(mitarbeiter), "€")  # → 6650 €
+```
+
+**Fazit:** Die Funktion `gesamt_gehalt` muss nicht wissen, ob jemand Freelancer oder Festangestellter ist – sie ruft einfach `.berechne_gehalt()` auf. Die abstrakte Klasse **erzwingt**, dass diese Methode existiert.
+
+---
+
+### 7.4 Polymorphie im spielerischen Kontext
+
+#### 🔹 Warum?
+
+Polymorphie macht besonders Spaß bei Spielen: Verschiedene Charaktere oder Tiere reagieren unterschiedlich auf denselben Befehl. Man kann einfach neue Typen hinzufügen, ohne die Steuerlogik anzupassen.
+
+#### 🔹 Beispiel – Zoo-Show
+
+> Datei: `polymorphie/polymorphie_mit_spielerischen_Kontext.py`
+
+```python
+from abc import ABC, abstractmethod
+
+class Tier(ABC):
+    @abstractmethod
+    def mache_laute(self):
+        pass
+
+class Hund(Tier):
+    def mache_laute(self):
+        print("Wuff! Wuff! Wuff!")
+
+class Katze(Tier):
+    def mache_laute(self):
+        print("Miau! Miau! Miau!")
+
+class Fuchs(Tier):
+    def mache_laute(self):
+        print("ring ring ring ring ring ring ring ring")
+
+def zoo_show(tiere):
+    print("Willkommen zur Zoo-Show!")
+    for tier in tiere:
+        tier.mache_laute()
+
+show = [Hund(), Katze(), Fuchs()]
+zoo_show(show)
+# → Wuff! Wuff! Wuff!
+# → Miau! Miau! Miau!
+# → ring ring ring ...
+```
+
+**Fazit:** Um ein neues Tier hinzuzufügen (z. B. `Vogel`), erstellt man einfach eine neue Klasse – `zoo_show` bleibt **unverändert**. Das zeigt, wie Polymorphie und OCP (Open/Closed Principle) Hand in Hand gehen.
+
+---
+
+## 8. Praxisprojekt – Modulares Smart Home
+
+### 🔹 Warum?
+
+Das Smart-Home-Projekt kombiniert **alle gelernten Konzepte** in einem realistischen Szenario:
+- Abstrakte Basisklasse (`SmartDevice`) → **gemeinsame Schnittstelle**
+- `private` und `protected` Attribute → **Kapselung**
+- Mehrere konkrete Unterklassen → **Polymorphie durch Vererbung**
+- Ein Koordinator-Objekt (`SmartHomeHub`) → **SRP** (eine Klasse, eine Aufgabe)
+
+### 🔹 Architektur
+
+```
+SmartDevice (ABC)          ← abstrakte Basisklasse
+├── Smartlight             ← steuert Licht
+└── SmartThermostat        ← steuert Temperatur
+
+SmartHomeHub               ← verwaltet alle Geräte (Liste, hinzufügen, entfernen)
+```
+
+### 🔹 Beispiel
+
+> Datei: `Modulare_smart_home.py`
+
+```python
+from abc import ABC, abstractmethod
+
+class SmartDevice(ABC):
+    def __init__(self, seriennummer):
+        self.__seriennummer = seriennummer   # PRIVATE → von außen nicht änderbar
+        self._status = False                 # PROTECTED → Unterklassen dürfen zugreifen
+
+    def get_status(self):
+        print("Status von:", self.__seriennummer, ":", self._status)
+
+    def get_seriennummer(self):
+        return self.__seriennummer
+
+    @abstractmethod
+    def ein_notfall(self):                   # jedes Gerät muss Notfall-Verhalten haben
+        pass
+
+    @abstractmethod
+    def simulate_activity(self):             # jedes Gerät muss Aktivität simulieren können
+        pass
+
+
+class SmartHomeHub:
+    def __init__(self):
+        self._devices = []
+
+    def add_device(self, device):
+        self._devices.append(device)
+
+    def remove_device(self, device):
+        if device in self._devices:
+            self._devices.remove(device)
+            print("Gerät entfernt:", device.get_seriennummer())
+
+    def activate_all_devices(self):
+        for device in self._devices:
+            device.simulate_activity()       # → Polymorphie! Jedes Gerät reagiert anders
+
+    def trigger_emergency(self):
+        for device in self._devices:
+            device.ein_notfall()             # → Polymorphie! Jedes Gerät hat eigenen Notfallplan
+
+
+class Smartlight(SmartDevice):
+    def ein_notfall(self):
+        self._status = False
+        print("Notfall! Schalte alle Lichter aus. SN:", self.get_seriennummer())
+
+    def simulate_activity(self):
+        self._status = True
+        print("Schalte Licht ein. SN:", self.get_seriennummer())
+
+
+class SmartThermostat(SmartDevice):
+    def __init__(self, seriennummer, temperatur):
+        SmartDevice.__init__(self, seriennummer)
+        self.__temperatur = temperatur       # PRIVATE → nur über set_temperatur veränderbar
+
+    def set_temperatur(self, wert):
+        self.__temperatur = min(wert, 30)   # max. 30 Grad erlaubt
+
+    def ein_notfall(self):
+        self._status = False
+        self.set_temperatur(0)
+        print("Notfall! Heizung aus. SN:", self.get_seriennummer())
+
+    def simulate_activity(self):
+        self._status = True
+        self.set_temperatur(18)
+        print("Heizung auf 18°C. SN:", self.get_seriennummer())
+
+
+# Verwendung
+smarthome = SmartHomeHub()
+licht1 = Smartlight("Licht001")
+thermostat1 = SmartThermostat("Thermo001", 22)
+
+smarthome.add_device(licht1)
+smarthome.add_device(thermostat1)
+smarthome.activate_all_devices()   # → beide Geräte starten
+smarthome.trigger_emergency()      # → beide Geräte reagieren auf Notfall
+licht1.get_status()                # → False (nach Notfall ausgeschaltet)
+smarthome.remove_device(licht1)    # → Licht wird entfernt
+```
+
+### 🔹 Konzepte auf einen Blick
+
+| Konzept | Wo im Smart-Home verwendet |
+|---|---|
+| Abstrakte Klasse (`ABC`) | `SmartDevice` erzwingt `ein_notfall()` & `simulate_activity()` |
+| `private` Attribut | `__seriennummer`, `__temperatur` – von außen nicht veränderbar |
+| `protected` Attribut | `_status`, `_devices` – für Unterklassen & Hub zugänglich |
+| Polymorphie | `activate_all_devices()` ruft auf jedem Gerät `simulate_activity()` auf |
+| SRP | Hub verwaltet, Licht schaltet, Thermostat regelt Temperatur |
+| Getter-Methode | `get_status()`, `get_seriennummer()` für kontrollierten Zugriff |
+
+---
+
+## 🔚 Zusammenfassung aller Konzepte
 
 | Konzept | Warum? | Datei(en) |
 |---|---|---|
 | Klassen & Objekte | Daten und Logik bündeln | `script.py` |
-| public / protected / private | Daten kapseln und schützen | `zugriffsmodifikatoren_beispiel.py`, `banktresor_mit_privaten_attributen.py` |
+| public / protected / private | Daten kapseln und schützen | `zugriffsmodifikatoren_beispiel.py`, `banktresor_mit_privaten_attributen.py`, `Fahrzeug_mit_geschuetzten_Status.py` |
 | Getter & Setter (`@property`) | Kontrollierten Zugriff auf private Attribute | `getter_setter.py` |
 | `singledispatchmethod` | Methodenüberladung nach Typ (1 Parameter) | `scriptueberladen.py`, `aufgabe1_dispatcher.py` |
 | `multipledispatch` | Methodenüberladung nach mehreren Typen | `multipleueberladen.py`, `aufgabe2_multidispatcher.py`, `aufgabe3_multidispatch_in_Klasse.py`, `hausaufgabe1.py`, `hausaufgaben2.py` |
 | SRP | Eine Klasse = eine Aufgabe | `srp_aufgabe1.py` |
 | OCP | Erweiterbar ohne bestehenden Code zu ändern | `ocp_aufgabe1.py` |
 | DIP | Abhängig von Abstraktionen, nicht von konkreten Klassen | `DIP_Aufgabe1.py` |
+| Polymorphie durch Vererbung | Unterklassen überschreiben Basisklassen-Methoden | `polymorphie_durch_vererbung.py` |
+| Duck Typing | Kein Erben nötig – gleiche Methode genügt | `polymorphie_durch_duck_typing.py` |
+| Polymorphie mit Schnittstellen | Abstrakte Klasse erzwingt gemeinsame Methoden | `polymorhpie_mit_gemiensamen_Schnittstellen.py` |
+| Polymorphie im Spielkontext | Erweiterbar ohne Steuerlogik zu ändern | `polymorphie_mit_spielerischen_Kontext.py` |
+| Praxisprojekt Smart Home | Alle Konzepte kombiniert (ABC, Kapselung, Polymorphie, SRP) | `Modulare_smart_home.py` |
 
 ---
 
-> 💡 **Tipp:** Gute objektorientierte Programme kombinieren alle diese Konzepte. SOLID-Prinzipien, Kapselung (private/protected) und clevere Dispatch-Mechanismen arbeiten zusammen, um Code verständlich, wartbar und sicher zu machen.
+> 💡 **Tipp:** Gute objektorientierte Programme kombinieren alle diese Konzepte. SOLID-Prinzipien, Kapselung (private/protected), clevere Dispatch-Mechanismen und Polymorphie arbeiten zusammen, um Code verständlich, wartbar und sicher zu machen.
 
