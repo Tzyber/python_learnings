@@ -14,7 +14,8 @@
 6. [SOLID-Prinzipien](#6-solid-prinzipien)
    - [SRP – Single Responsibility Principle](#61-srp--single-responsibility-principle)
    - [OCP – Open/Closed Principle](#62-ocp--openclosed-principle)
-   - [DIP – Dependency Inversion Principle](#63-dip--dependency-inversion-principle)
+   - [Adapter Pattern – Schnittstellen anpassen](#63-adapter-pattern--schnittstellen-anpassen)
+   - [DIP – Dependency Inversion Principle](#64-dip--dependency-inversion-principle)
 7. [Dependency Injection (DI)](#7-dependency-injection-di)
    - [DI ohne Abstraktion – das Problem](#71-di-ohne-abstraktion--das-problem)
    - [DI mit Konstruktor-Injektion – die Lösung](#72-di-mit-konstruktor-injektion--die-lösung)
@@ -654,7 +655,188 @@ print(calc.calculate_discount(100, BlackFridayDiscount())) # → 50.0 €
 
 ---
 
-### 6.3 DIP – Dependency Inversion Principle
+### 6.3 Adapter Pattern – Schnittstellen anpassen
+
+#### 🔹 Warum?
+
+Manchmal möchte man eine bestehende Klasse verwenden, deren Schnittstelle (Methodenname, Parameter) aber **nicht zur erwarteten Schnittstelle passt**. Statt die alte Klasse zu verändern (was gegen das OCP verstößt), erstellt man einen **Adapter** – eine Zwischenschicht, die die Schnittstelle übersetzt. Das Ergebnis: Alte und neue Klassen arbeiten zusammen, ohne dass man vorhandenen Code anfassen muss.
+
+#### 🔹 Wie?
+
+Der Adapter:
+1. Nimmt das **inkompatible Objekt** im Konstruktor entgegen.
+2. Stellt die **erwartete Schnittstelle** nach außen bereit.
+3. Delegiert intern an das inkompatible Objekt – übersetzt also die Methode.
+
+```
+Aufrufer → erwartet: methode_X()
+Adapter  → hat: methode_X() → ruft intern: methode_Y() auf
+Ziel     → hat nur: methode_Y()
+```
+
+#### 🔹 Beispiel – Steckdosen-Adapter (Grundprinzip)
+
+> Datei: `OCP_Aufgaben/Adapter Pattern.py`
+
+```python
+class EuropeanPlug:
+    def round_pin_plug(self):
+        return "Using European round pin plug"
+
+class AmericanSocket:
+    def flat_pin_socket(self):
+        return "Using American flat pin socket"
+
+class AmericanPlug:
+    def flat_pin_plug(self):
+        return "Using American flat pin plug"
+
+class EuropeanSocket:
+    def round_pin_socket(self):
+        return "Using European round pin socket"
+
+# Adapter: EUR-Stecker → US-Steckdose
+class PlugAdapter_EUR_to_US:
+    def __init__(self, use_european_plug, use_american_socket):
+        self.european_plug = use_european_plug
+        self.american_socket = use_american_socket
+
+    def wired_connector(self):
+        return self.european_plug.round_pin_plug() + " and " + self.american_socket.flat_pin_socket()
+
+# Adapter: US-Stecker → EUR-Steckdose
+class PlugAdapter_US_to_EUR:
+    def __init__(self, use_american_plug, use_european_socket):
+        self.american_plug = use_american_plug
+        self.european_socket = use_european_socket
+
+    def wired_connector(self):
+        return self.american_plug.flat_pin_plug() + " and " + self.european_socket.round_pin_socket()
+
+adapter1 = PlugAdapter_EUR_to_US(EuropeanPlug(), AmericanSocket())
+print(adapter1.wired_connector())
+# → Using European round pin plug and Using American flat pin socket
+
+adapter2 = PlugAdapter_US_to_EUR(AmericanPlug(), EuropeanSocket())
+print(adapter2.wired_connector())
+# → Using American flat pin plug and Using European round pin socket
+```
+
+**Fazit:** Weder `EuropeanPlug` noch `AmericanSocket` wurden verändert. Der Adapter fungiert als Übersetzer zwischen den beiden inkompatiblen Schnittstellen.
+
+---
+
+#### 🔹 Beispiel – Audio-Adapter (Format-Konvertierung)
+
+> Datei: `OCP_Aufgaben/audio_adapter.py`
+
+```python
+class AudioPlayer:
+    def Mp3_Player(self, file):
+        print(f"Playing MP3 file: {file}")
+
+class WavPlayer:
+    def Wav_Player(self, file):
+        print(f"Playing WAV file: {file}")
+
+class AudioAdapter:
+    def __init__(self, audio_player):
+        self.audio_player = audio_player
+
+    def Play_Wav(self, file):
+        print(f"--- Adapter-Log: Starte Konvertierung von '{file}' ---")
+        print(f"--- Status: Transformiere MP3-Signal zu WAV-Signal... ---")
+        mp3_format = file.replace(".wav", ".mp3")
+        print(f"--- Adapter-Log: Konvertierung abgeschlossen. ---")
+        self.audio_player.Mp3_Player(mp3_format)
+
+adapter = AudioAdapter(AudioPlayer())
+adapter.Play_Wav("hochzeit_aufnahme.wav")
+# → Starte Konvertierung... → Playing MP3 file: hochzeit_aufnahme.mp3
+```
+
+**Szenario:** Ein neues System erwartet `Play_Wav()`, aber der vorhandene Player kennt nur `Mp3_Player()`. Der Adapter übersetzt intern das WAV-Format zu MP3 und delegiert an den bestehenden Player – **kein alter Code verändert**.
+
+---
+
+#### 🔹 Beispiel – Drucker-Adapter (altes API, neues Format)
+
+> Datei: `OCP_Aufgaben/drucker_adapter.py`
+
+```python
+class Alter_Drucker:
+    def print_text(self, text_string):       # erwartet: einfachen String
+        print(f"Drucker druckt: {text_string}")
+
+class PrintAdapter:
+    def __init__(self, alter_drucker):
+        self.alter_drucker = alter_drucker
+
+    def print_document(self, doc_object):    # erwartet: Dictionary {"title", "content"}
+        text = f"{doc_object['title']} - {doc_object['content']}"
+        self.alter_drucker.print_text(text)  # wandelt Objekt → String um
+
+adapter = PrintAdapter(Alter_Drucker())
+mein_dokument = {"title": "Rechnung", "content": "Bitte zahlen Sie 50 Euro."}
+adapter.print_document(mein_dokument)
+# → Drucker druckt: Rechnung - Bitte zahlen Sie 50 Euro.
+```
+
+**Szenario:** Der alte Drucker kennt nur einfache Strings. Das neue System übergibt strukturierte Objekte (Dictionaries). Der `PrintAdapter` übersetzt das neue Format in das alte.
+
+---
+
+#### 🔹 Beispiel – Zahlungs-Adapter (altes System, neue API)
+
+> Datei: `OCP_Aufgaben/payment.py`
+
+```python
+class OldPayment:
+    def pay(self, amount):
+        print(f"Zahlung von {amount} Euro mit altem System durchgeführt.")
+
+class NewpaymentSystem:
+    def make_payment(self, amount, currency):   # neue API: braucht auch Währung!
+        print(f"Zahlung von {amount} {currency} mit neuem System durchgeführt.")
+
+class PaymentAdapter:
+    def __init__(self, new_payment_system, currency):
+        self.new_payment_system = new_payment_system
+        self.currency = currency
+
+    def pay(self, amount):                       # alte Schnittstelle bleibt erhalten
+        self.new_payment_system.make_payment(amount, self.currency)
+
+adapter = PaymentAdapter(NewpaymentSystem(), "€")
+adapter.pay(100)
+# → Zahlung von 100 € mit neuem System durchgeführt.
+```
+
+**Szenario:** Der Rest des Systems ruft weiterhin `pay(amount)` auf (alte Schnittstelle). Das neue Zahlungssystem braucht aber auch eine Währungsangabe. Der `PaymentAdapter` fügt diese intern hinzu – alle bestehenden Aufrufe bleiben **unverändert**.
+
+---
+
+#### 🔹 Adapter Pattern – Zusammenfassung
+
+| Begriff | Rolle |
+|---|---|
+| **Ziel (Target)** | Die Schnittstelle, die der Aufrufer erwartet |
+| **Adaptee** | Die bestehende, inkompatible Klasse |
+| **Adapter** | Übersetzt die Ziel-Schnittstelle zur Adaptee-Schnittstelle |
+
+```
+Aufrufer → ruft: pay(amount)
+              ↓
+        PaymentAdapter.pay(amount)        ← Adapter (übersetzt)
+              ↓
+        NewpaymentSystem.make_payment(amount, currency)   ← Adaptee
+```
+
+> 💡 **Verbindung zu OCP:** Der Adapter erlaubt es, neue oder inkompatible Klassen zu integrieren, **ohne bestehenden Code zu verändern** – das entspricht exakt dem Open/Closed Principle.
+
+---
+
+### 6.4 DIP – Dependency Inversion Principle
 
 #### 🔹 Warum?
 
@@ -1355,6 +1537,7 @@ smarthome.remove_device(licht1)    # → Licht wird entfernt
 | `multipledispatch` | Methodenüberladung nach mehreren Typen | `multipleueberladen.py`, `aufgabe2_multidispatcher.py`, `aufgabe3_multidispatch_in_Klasse.py`, `hausaufgabe1.py`, `hausaufgaben2.py` |
 | SRP | Eine Klasse = eine Aufgabe | `srp_aufgabe1.py` |
 | OCP | Erweiterbar ohne bestehenden Code zu ändern | `ocp_aufgabe1.py` |
+| Adapter Pattern | Inkompatible Schnittstellen übersetzen ohne alten Code zu verändern | `Adapter Pattern.py`, `audio_adapter.py`, `drucker_adapter.py`, `payment.py` |
 | DIP | Abhängig von Abstraktionen, nicht von konkreten Klassen | `DIP_Aufgabe1.py` |
 | Dependency Injection (Grundprinzip) | Abhängigkeiten von außen übergeben statt selbst erstellen | `Beispiel DI.py`, `Beispiel DI Lösung.py` |
 | DI mit ABC | Abstrakte Schnittstelle + Injektion für maximale Flexibilität | `Benarichtigungssystem_Mit_DI.py`, `Kaffeemaschiene_dependencyinjection.py` |
