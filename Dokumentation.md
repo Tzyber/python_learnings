@@ -14,8 +14,10 @@
 6. [SOLID-Prinzipien](#6-solid-prinzipien)
    - [SRP – Single Responsibility Principle](#61-srp--single-responsibility-principle)
    - [OCP – Open/Closed Principle](#62-ocp--openclosed-principle)
-   - [Adapter Pattern – Schnittstellen anpassen](#63-adapter-pattern--schnittstellen-anpassen)
-   - [DIP – Dependency Inversion Principle](#64-dip--dependency-inversion-principle)
+   - [LSP – Liskov Substitution Principle](#63-lsp--liskov-substitution-principle)
+   - [ISP – Interface Segregation Principle](#64-isp--interface-segregation-principle)
+   - [Adapter Pattern – Schnittstellen anpassen](#65-adapter-pattern--schnittstellen-anpassen)
+   - [DIP – Dependency Inversion Principle](#66-dip--dependency-inversion-principle)
 7. [Dependency Injection (DI)](#7-dependency-injection-di)
    - [DI ohne Abstraktion – das Problem](#71-di-ohne-abstraktion--das-problem)
    - [DI mit Konstruktor-Injektion – die Lösung](#72-di-mit-konstruktor-injektion--die-lösung)
@@ -28,7 +30,8 @@
    - [Polymorphie durch Duck Typing](#82-polymorphie-durch-duck-typing)
    - [Polymorphie mit gemeinsamen Schnittstellen](#83-polymorphie-mit-gemeinsamen-schnittstellen)
    - [Polymorphie im spielerischen Kontext](#84-polymorphie-im-spielerischen-kontext)
-9. [Praxisprojekt – Modulares Smart Home](#9-praxisprojekt--modulares-smart-home)
+9. [Observer Pattern](#9-observer-pattern)
+10. [Praxisprojekt – Modulares Smart Home](#10-praxisprojekt--modulares-smart-home)
 
 ---
 
@@ -215,6 +218,8 @@ Manchmal soll ein Attribut zwar gelesen, aber nicht direkt von außen gesetzt we
 
 - `@property` macht eine Methode zu einem **Getter** (lesbar wie ein Attribut).
 - `@attributname.setter` definiert den **Setter** (mit Validierungslogik).
+
+> **💡 Pro-Tipp:** In Python fängt man meist mit `public` Attributen an (`self.kontostand`). Wenn man später eine Validierung braucht, baut man **nachträglich** `@property` ein, ohne dass sich für den Rest des Codes etwas ändert (`konto.kontostand` bleibt gleich!). In Java müsste man den Code an allen Stellen umschreiben, wo `konto.kontostand` verwendet wurde, weil man plötzlich `getKontostand()` aufrufen muss.
 
 ### 🔹 Beispiel – BankKonto mit @property
 
@@ -655,7 +660,52 @@ print(calc.calculate_discount(100, BlackFridayDiscount())) # → 50.0 €
 
 ---
 
-### 6.3 Adapter Pattern – Schnittstellen anpassen
+### 6.3 LSP – Liskov Substitution Principle
+
+#### 🔹 Warum?
+
+Wenn eine Klasse von einer anderen erbt, sollte sie sich auch so verhalten, wie man es erwartet. Eine Unterklasse muss **jederzeit** ihre Elternklasse ersetzen können, ohne dass das Programm abstürzt oder falsche Ergebnisse liefert.
+
+#### 🔹 Das Problem (Beispiel)
+
+```python
+class Vogel:
+    def fliegen(self):
+        print("Ich fliege!")
+
+class Pinguin(Vogel):
+    def fliegen(self):
+        raise Exception("Pinguine können nicht fliegen!")  # ❌ Verletzt LSP!
+```
+
+Wenn ich eine Liste von Vögeln durchgehe und `.fliegen()` aufrufe, stürzt das Programm beim Pinguin ab. Der Pinguin verhält sich nicht wie ein "normaler" Vogel.
+
+#### 🔹 Die Lösung
+
+Statt alles in eine `Vogel`-Klasse zu packen, teilt man die Fähigkeiten auf oder nutzt Komposition. Ein Pinguin *ist* ein Vogel, aber er *hat keine* Flugfähigkeit.
+
+---
+
+### 6.4 ISP – Interface Segregation Principle
+
+#### 🔹 Warum?
+
+Kein Client sollte gezwungen sein, Methoden zu implementieren, die er gar nicht braucht. Ein riesiges Interface ("Gott-Interface") ist schlecht, weil Änderungen daran alle Klassen betreffen. Besser sind viele kleine, spezifische Interfaces.
+
+#### 🔹 Beispiel
+
+**Schlecht:**
+Ein Interface `MultifunktionsGeraet` mit `drucken()`, `scannen()`, `faxen()`.
+Ein einfacher Drucker *muss* dann `scannen()` und `faxen()` implementieren (auch wenn er nur `pass` macht).
+
+**Gut:**
+Drei Interfaces: `Drucker`, `Scanner`, `Fax`.
+- Das Kombigreät erbt von allen drei.
+- Der einfache Drucker erbt nur von `Drucker`.
+
+---
+
+### 6.5 Adapter Pattern – Schnittstellen anpassen
 
 #### 🔹 Warum?
 
@@ -836,7 +886,7 @@ Aufrufer → ruft: pay(amount)
 
 ---
 
-### 6.4 DIP – Dependency Inversion Principle
+### 6.6 DIP – Dependency Inversion Principle
 
 #### 🔹 Warum?
 
@@ -1274,6 +1324,8 @@ In Python gilt: **„If it walks like a duck and quacks like a duck, it's a duck
 
 > Datei: `polymorphie/polymorphie_durch_duck_typing.py`
 
+> **💡 Pro-Tipp:** In statischen Sprachen (Java, C++) müssen Objekte oft ein gemeinsames Interface "unterschreiben" (implementieren), um zusammen genutzt zu werden. In Python reicht es, wenn sie *zufällig* die gleiche Methode haben – das nennt man **Duck Typing** ("Wenn es wie eine Ente läuft und quakt, ist es eine Ente"). Das macht den Code extrem flexibel, erfordert aber Sorgfalt (Runtime Error, wenn Methode fehlt!).
+
 ```python
 class Email:
     def senden(self, nachricht):
@@ -1403,7 +1455,113 @@ zoo_show(show)
 
 ---
 
-## 9. Praxisprojekt – Modulares Smart Home
+## 9. Observer Pattern
+
+### 🔹 Warum?
+Wenn sich der Zustand eines Objekts ändert (z.B. Wetterdaten, Spielstand), sollen alle davon abhängigen Objekte (Displays, Apps) automatisch benachrichtigt werden. Das Observer Pattern entkoppelt das beobachtbare Objekt (Subject) von den Beobachtern (Observers) – das Subject kennt seine Beobachter nicht persönlich, sondern nur über eine gemeinsame Schnittstelle.
+
+### 🔹 Wie?
+- **Subject** (Beobachtbares Objekt): Verwaltet eine Liste von Observern. Bietet Methoden zum An- und Abmelden (`attach`, `detach`) und Benachrichtigen (`notify`).
+- **Observer** (Beobachter): Definiert eine Schnittstelle (`update`), die vom Subject aufgerufen wird.
+- **ConcreteSubject & ConcreteObserver**: Implementieren die Logik.
+
+```
+       Subject                          Observer
+    +----------------+             +----------------+
+    | - observers [] | <---------> | + update()     |
+    | + attach()     |             +----------------+
+    | + detach()     |                     ^
+    | + notify() ----|-----> ruft auf -----|
+    +----------------+
+```
+
+### 🔹 Beispiel – Wetterstation
+> Datei: `observer_Pattern/Oberserver.py`
+
+```python
+from abc import ABC, abstractmethod
+
+# Subject (Wetterstation)
+class WeatherStation:
+    def __init__(self):
+        self._observers = []
+        self._temperature = 0
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def remove_observer(self, observer):
+        self._observers.remove(observer)
+
+    def notify_observers(self):
+        for observer in self._observers:
+            observer.update(self._temperature)
+
+    def set_temperature(self, temperature):
+        print(f"WeatherStation: Temp set to {temperature}")
+        self._temperature = temperature
+        self.notify_observers()
+
+# Observer Interface
+class Observer(ABC):
+    @abstractmethod
+    def update(self, temperature):
+        pass
+
+# Concrete Observer
+class PhoneDisplay(Observer):
+    def update(self, temperature):
+        print(f"PhoneDisplay: Temp is {temperature}°C.")
+
+station = WeatherStation()
+phone = PhoneDisplay()
+station.add_observer(phone)
+station.set_temperature(25)
+# → WeatherStation: Temp set to 25
+# → PhoneDisplay: Temp is 25°C.
+```
+**Erläuterung:** Die Wetterstation benachrichtigt alle angemeldeten Beobachter über Temperaturänderungen, ohne zu wissen, wer oder was sie sind.
+
+### 🔹 Beispiel – Fußball-Ticker
+> Datei: `observer_Pattern/Fussball_Ticker.py`
+
+```python
+class Footballmatch:
+    def __init__(self, home, away):
+        self.home = home
+        self.away = away
+        self._observers = []
+        self.score_home = 0
+        self.score_away = 0
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def notify_observers(self):
+        score = f"{self.home} {self.score_home} - {self.score_away} {self.away}"
+        for observer in self._observers:
+            observer.update(score)
+
+    def score(self, is_home_goal):
+        if is_home_goal: self.score_home += 1
+        else: self.score_away += 1
+        self.notify_observers()
+
+class MobileApp:
+    def update(self, score):
+        print(f"[App] Neuer Stand: {score}")
+
+match = Footballmatch("Bayern", "BVB")
+match.add_observer(MobileApp())
+match.score(True)
+# → [App] Neuer Stand: Bayern 1 - 0 BVB
+```
+
+**Szenario:** Ein Tor fällt – und sofort erhalten TV, Webportal und Apps die Info. Würde man das ohne Observer Pattern machen, müsste die `Footballmatch`-Klasse alle Apps direkt kennen. Das wäre schwer zu warten und unflexibel.
+
+---
+
+## 10. Praxisprojekt – Modulares Smart Home
 
 ### 🔹 Warum?
 
@@ -1548,6 +1706,7 @@ smarthome.remove_device(licht1)    # → Licht wird entfernt
 | Duck Typing | Kein Erben nötig – gleiche Methode genügt | `polymorphie_durch_duck_typing.py` |
 | Polymorphie mit Schnittstellen | Abstrakte Klasse erzwingt gemeinsame Methoden | `polymorhpie_mit_gemiensamen_Schnittstellen.py` |
 | Polymorphie im Spielkontext | Erweiterbar ohne Steuerlogik zu ändern | `polymorphie_mit_spielerischen_Kontext.py` |
+| Observer Pattern | Automatische Benachrichtigung bei Zustandsänderungen | `Oberserver.py`, `Fussball_Ticker.py` |
 | Praxisprojekt Smart Home | Alle Konzepte kombiniert (ABC, Kapselung, Polymorphie, SRP) | `Modulare_smart_home.py` |
 
 ---
