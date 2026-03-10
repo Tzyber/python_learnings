@@ -14,7 +14,10 @@
 6. [SOLID-Prinzipien](#6-solid-prinzipien)
    - [SRP – Single Responsibility Principle](#61-srp--single-responsibility-principle)
    - [OCP – Open/Closed Principle](#62-ocp--openclosed-principle)
-   - [DIP – Dependency Inversion Principle](#63-dip--dependency-inversion-principle)
+   - [LSP – Liskov Substitution Principle](#63-lsp--liskov-substitution-principle)
+   - [ISP – Interface Segregation Principle](#64-isp--interface-segregation-principle)
+   - [Adapter Pattern – Schnittstellen anpassen](#65-adapter-pattern--schnittstellen-anpassen)
+   - [DIP – Dependency Inversion Principle](#66-dip--dependency-inversion-principle)
 7. [Dependency Injection (DI)](#7-dependency-injection-di)
    - [DI ohne Abstraktion – das Problem](#71-di-ohne-abstraktion--das-problem)
    - [DI mit Konstruktor-Injektion – die Lösung](#72-di-mit-konstruktor-injektion--die-lösung)
@@ -27,7 +30,8 @@
    - [Polymorphie durch Duck Typing](#82-polymorphie-durch-duck-typing)
    - [Polymorphie mit gemeinsamen Schnittstellen](#83-polymorphie-mit-gemeinsamen-schnittstellen)
    - [Polymorphie im spielerischen Kontext](#84-polymorphie-im-spielerischen-kontext)
-9. [Praxisprojekt – Modulares Smart Home](#9-praxisprojekt--modulares-smart-home)
+9. [Observer Pattern](#9-observer-pattern)
+10. [Praxisprojekt – Modulares Smart Home](#10-praxisprojekt--modulares-smart-home)
 
 ---
 
@@ -214,6 +218,8 @@ Manchmal soll ein Attribut zwar gelesen, aber nicht direkt von außen gesetzt we
 
 - `@property` macht eine Methode zu einem **Getter** (lesbar wie ein Attribut).
 - `@attributname.setter` definiert den **Setter** (mit Validierungslogik).
+
+> **💡 Pro-Tipp:** In Python fängt man meist mit `public` Attributen an (`self.kontostand`). Wenn man später eine Validierung braucht, baut man **nachträglich** `@property` ein, ohne dass sich für den Rest des Codes etwas ändert (`konto.kontostand` bleibt gleich!). In Java müsste man den Code an allen Stellen umschreiben, wo `konto.kontostand` verwendet wurde, weil man plötzlich `getKontostand()` aufrufen muss.
 
 ### 🔹 Beispiel – BankKonto mit @property
 
@@ -654,7 +660,233 @@ print(calc.calculate_discount(100, BlackFridayDiscount())) # → 50.0 €
 
 ---
 
-### 6.3 DIP – Dependency Inversion Principle
+### 6.3 LSP – Liskov Substitution Principle
+
+#### 🔹 Warum?
+
+Wenn eine Klasse von einer anderen erbt, sollte sie sich auch so verhalten, wie man es erwartet. Eine Unterklasse muss **jederzeit** ihre Elternklasse ersetzen können, ohne dass das Programm abstürzt oder falsche Ergebnisse liefert.
+
+#### 🔹 Das Problem (Beispiel)
+
+```python
+class Vogel:
+    def fliegen(self):
+        print("Ich fliege!")
+
+class Pinguin(Vogel):
+    def fliegen(self):
+        raise Exception("Pinguine können nicht fliegen!")  # ❌ Verletzt LSP!
+```
+
+Wenn ich eine Liste von Vögeln durchgehe und `.fliegen()` aufrufe, stürzt das Programm beim Pinguin ab. Der Pinguin verhält sich nicht wie ein "normaler" Vogel.
+
+#### 🔹 Die Lösung
+
+Statt alles in eine `Vogel`-Klasse zu packen, teilt man die Fähigkeiten auf oder nutzt Komposition. Ein Pinguin *ist* ein Vogel, aber er *hat keine* Flugfähigkeit.
+
+---
+
+### 6.4 ISP – Interface Segregation Principle
+
+#### 🔹 Warum?
+
+Kein Client sollte gezwungen sein, Methoden zu implementieren, die er gar nicht braucht. Ein riesiges Interface ("Gott-Interface") ist schlecht, weil Änderungen daran alle Klassen betreffen. Besser sind viele kleine, spezifische Interfaces.
+
+#### 🔹 Beispiel
+
+**Schlecht:**
+Ein Interface `MultifunktionsGeraet` mit `drucken()`, `scannen()`, `faxen()`.
+Ein einfacher Drucker *muss* dann `scannen()` und `faxen()` implementieren (auch wenn er nur `pass` macht).
+
+**Gut:**
+Drei Interfaces: `Drucker`, `Scanner`, `Fax`.
+- Das Kombigreät erbt von allen drei.
+- Der einfache Drucker erbt nur von `Drucker`.
+
+---
+
+### 6.5 Adapter Pattern – Schnittstellen anpassen
+
+#### 🔹 Warum?
+
+Manchmal möchte man eine bestehende Klasse verwenden, deren Schnittstelle (Methodenname, Parameter) aber **nicht zur erwarteten Schnittstelle passt**. Statt die alte Klasse zu verändern (was gegen das OCP verstößt), erstellt man einen **Adapter** – eine Zwischenschicht, die die Schnittstelle übersetzt. Das Ergebnis: Alte und neue Klassen arbeiten zusammen, ohne dass man vorhandenen Code anfassen muss.
+
+#### 🔹 Wie?
+
+Der Adapter:
+1. Nimmt das **inkompatible Objekt** im Konstruktor entgegen.
+2. Stellt die **erwartete Schnittstelle** nach außen bereit.
+3. Delegiert intern an das inkompatible Objekt – übersetzt also die Methode.
+
+```
+Aufrufer → erwartet: methode_X()
+Adapter  → hat: methode_X() → ruft intern: methode_Y() auf
+Ziel     → hat nur: methode_Y()
+```
+
+#### 🔹 Beispiel – Steckdosen-Adapter (Grundprinzip)
+
+> Datei: `OCP_Aufgaben/Adapter Pattern.py`
+
+```python
+class EuropeanPlug:
+    def round_pin_plug(self):
+        return "Using European round pin plug"
+
+class AmericanSocket:
+    def flat_pin_socket(self):
+        return "Using American flat pin socket"
+
+class AmericanPlug:
+    def flat_pin_plug(self):
+        return "Using American flat pin plug"
+
+class EuropeanSocket:
+    def round_pin_socket(self):
+        return "Using European round pin socket"
+
+# Adapter: EUR-Stecker → US-Steckdose
+class PlugAdapter_EUR_to_US:
+    def __init__(self, use_european_plug, use_american_socket):
+        self.european_plug = use_european_plug
+        self.american_socket = use_american_socket
+
+    def wired_connector(self):
+        return self.european_plug.round_pin_plug() + " and " + self.american_socket.flat_pin_socket()
+
+# Adapter: US-Stecker → EUR-Steckdose
+class PlugAdapter_US_to_EUR:
+    def __init__(self, use_american_plug, use_european_socket):
+        self.american_plug = use_american_plug
+        self.european_socket = use_european_socket
+
+    def wired_connector(self):
+        return self.american_plug.flat_pin_plug() + " and " + self.european_socket.round_pin_socket()
+
+adapter1 = PlugAdapter_EUR_to_US(EuropeanPlug(), AmericanSocket())
+print(adapter1.wired_connector())
+# → Using European round pin plug and Using American flat pin socket
+
+adapter2 = PlugAdapter_US_to_EUR(AmericanPlug(), EuropeanSocket())
+print(adapter2.wired_connector())
+# → Using American flat pin plug and Using European round pin socket
+```
+
+**Fazit:** Weder `EuropeanPlug` noch `AmericanSocket` wurden verändert. Der Adapter fungiert als Übersetzer zwischen den beiden inkompatiblen Schnittstellen.
+
+---
+
+#### 🔹 Beispiel – Audio-Adapter (Format-Konvertierung)
+
+> Datei: `OCP_Aufgaben/audio_adapter.py`
+
+```python
+class AudioPlayer:
+    def Mp3_Player(self, file):
+        print(f"Playing MP3 file: {file}")
+
+class WavPlayer:
+    def Wav_Player(self, file):
+        print(f"Playing WAV file: {file}")
+
+class AudioAdapter:
+    def __init__(self, audio_player):
+        self.audio_player = audio_player
+
+    def Play_Wav(self, file):
+        print(f"--- Adapter-Log: Starte Konvertierung von '{file}' ---")
+        print(f"--- Status: Transformiere MP3-Signal zu WAV-Signal... ---")
+        mp3_format = file.replace(".wav", ".mp3")
+        print(f"--- Adapter-Log: Konvertierung abgeschlossen. ---")
+        self.audio_player.Mp3_Player(mp3_format)
+
+adapter = AudioAdapter(AudioPlayer())
+adapter.Play_Wav("hochzeit_aufnahme.wav")
+# → Starte Konvertierung... → Playing MP3 file: hochzeit_aufnahme.mp3
+```
+
+**Szenario:** Ein neues System erwartet `Play_Wav()`, aber der vorhandene Player kennt nur `Mp3_Player()`. Der Adapter übersetzt intern das WAV-Format zu MP3 und delegiert an den bestehenden Player – **kein alter Code verändert**.
+
+---
+
+#### 🔹 Beispiel – Drucker-Adapter (altes API, neues Format)
+
+> Datei: `OCP_Aufgaben/drucker_adapter.py`
+
+```python
+class Alter_Drucker:
+    def print_text(self, text_string):       # erwartet: einfachen String
+        print(f"Drucker druckt: {text_string}")
+
+class PrintAdapter:
+    def __init__(self, alter_drucker):
+        self.alter_drucker = alter_drucker
+
+    def print_document(self, doc_object):    # erwartet: Dictionary {"title", "content"}
+        text = f"{doc_object['title']} - {doc_object['content']}"
+        self.alter_drucker.print_text(text)  # wandelt Objekt → String um
+
+adapter = PrintAdapter(Alter_Drucker())
+mein_dokument = {"title": "Rechnung", "content": "Bitte zahlen Sie 50 Euro."}
+adapter.print_document(mein_dokument)
+# → Drucker druckt: Rechnung - Bitte zahlen Sie 50 Euro.
+```
+
+**Szenario:** Der alte Drucker kennt nur einfache Strings. Das neue System übergibt strukturierte Objekte (Dictionaries). Der `PrintAdapter` übersetzt das neue Format in das alte.
+
+---
+
+#### 🔹 Beispiel – Zahlungs-Adapter (altes System, neue API)
+
+> Datei: `OCP_Aufgaben/payment.py`
+
+```python
+class OldPayment:
+    def pay(self, amount):
+        print(f"Zahlung von {amount} Euro mit altem System durchgeführt.")
+
+class NewpaymentSystem:
+    def make_payment(self, amount, currency):   # neue API: braucht auch Währung!
+        print(f"Zahlung von {amount} {currency} mit neuem System durchgeführt.")
+
+class PaymentAdapter:
+    def __init__(self, new_payment_system, currency):
+        self.new_payment_system = new_payment_system
+        self.currency = currency
+
+    def pay(self, amount):                       # alte Schnittstelle bleibt erhalten
+        self.new_payment_system.make_payment(amount, self.currency)
+
+adapter = PaymentAdapter(NewpaymentSystem(), "€")
+adapter.pay(100)
+# → Zahlung von 100 € mit neuem System durchgeführt.
+```
+
+**Szenario:** Der Rest des Systems ruft weiterhin `pay(amount)` auf (alte Schnittstelle). Das neue Zahlungssystem braucht aber auch eine Währungsangabe. Der `PaymentAdapter` fügt diese intern hinzu – alle bestehenden Aufrufe bleiben **unverändert**.
+
+---
+
+#### 🔹 Adapter Pattern – Zusammenfassung
+
+| Begriff | Rolle |
+|---|---|
+| **Ziel (Target)** | Die Schnittstelle, die der Aufrufer erwartet |
+| **Adaptee** | Die bestehende, inkompatible Klasse |
+| **Adapter** | Übersetzt die Ziel-Schnittstelle zur Adaptee-Schnittstelle |
+
+```
+Aufrufer → ruft: pay(amount)
+              ↓
+        PaymentAdapter.pay(amount)        ← Adapter (übersetzt)
+              ↓
+        NewpaymentSystem.make_payment(amount, currency)   ← Adaptee
+```
+
+> 💡 **Verbindung zu OCP:** Der Adapter erlaubt es, neue oder inkompatible Klassen zu integrieren, **ohne bestehenden Code zu verändern** – das entspricht exakt dem Open/Closed Principle.
+
+---
+
+### 6.6 DIP – Dependency Inversion Principle
 
 #### 🔹 Warum?
 
@@ -1092,6 +1324,8 @@ In Python gilt: **„If it walks like a duck and quacks like a duck, it's a duck
 
 > Datei: `polymorphie/polymorphie_durch_duck_typing.py`
 
+> **💡 Pro-Tipp:** In statischen Sprachen (Java, C++) müssen Objekte oft ein gemeinsames Interface "unterschreiben" (implementieren), um zusammen genutzt zu werden. In Python reicht es, wenn sie *zufällig* die gleiche Methode haben – das nennt man **Duck Typing** ("Wenn es wie eine Ente läuft und quakt, ist es eine Ente"). Das macht den Code extrem flexibel, erfordert aber Sorgfalt (Runtime Error, wenn Methode fehlt!).
+
 ```python
 class Email:
     def senden(self, nachricht):
@@ -1221,7 +1455,113 @@ zoo_show(show)
 
 ---
 
-## 9. Praxisprojekt – Modulares Smart Home
+## 9. Observer Pattern
+
+### 🔹 Warum?
+Wenn sich der Zustand eines Objekts ändert (z.B. Wetterdaten, Spielstand), sollen alle davon abhängigen Objekte (Displays, Apps) automatisch benachrichtigt werden. Das Observer Pattern entkoppelt das beobachtbare Objekt (Subject) von den Beobachtern (Observers) – das Subject kennt seine Beobachter nicht persönlich, sondern nur über eine gemeinsame Schnittstelle.
+
+### 🔹 Wie?
+- **Subject** (Beobachtbares Objekt): Verwaltet eine Liste von Observern. Bietet Methoden zum An- und Abmelden (`attach`, `detach`) und Benachrichtigen (`notify`).
+- **Observer** (Beobachter): Definiert eine Schnittstelle (`update`), die vom Subject aufgerufen wird.
+- **ConcreteSubject & ConcreteObserver**: Implementieren die Logik.
+
+```
+       Subject                          Observer
+    +----------------+             +----------------+
+    | - observers [] | <---------> | + update()     |
+    | + attach()     |             +----------------+
+    | + detach()     |                     ^
+    | + notify() ----|-----> ruft auf -----|
+    +----------------+
+```
+
+### 🔹 Beispiel – Wetterstation
+> Datei: `observer_Pattern/Oberserver.py`
+
+```python
+from abc import ABC, abstractmethod
+
+# Subject (Wetterstation)
+class WeatherStation:
+    def __init__(self):
+        self._observers = []
+        self._temperature = 0
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def remove_observer(self, observer):
+        self._observers.remove(observer)
+
+    def notify_observers(self):
+        for observer in self._observers:
+            observer.update(self._temperature)
+
+    def set_temperature(self, temperature):
+        print(f"WeatherStation: Temp set to {temperature}")
+        self._temperature = temperature
+        self.notify_observers()
+
+# Observer Interface
+class Observer(ABC):
+    @abstractmethod
+    def update(self, temperature):
+        pass
+
+# Concrete Observer
+class PhoneDisplay(Observer):
+    def update(self, temperature):
+        print(f"PhoneDisplay: Temp is {temperature}°C.")
+
+station = WeatherStation()
+phone = PhoneDisplay()
+station.add_observer(phone)
+station.set_temperature(25)
+# → WeatherStation: Temp set to 25
+# → PhoneDisplay: Temp is 25°C.
+```
+**Erläuterung:** Die Wetterstation benachrichtigt alle angemeldeten Beobachter über Temperaturänderungen, ohne zu wissen, wer oder was sie sind.
+
+### 🔹 Beispiel – Fußball-Ticker
+> Datei: `observer_Pattern/Fussball_Ticker.py`
+
+```python
+class Footballmatch:
+    def __init__(self, home, away):
+        self.home = home
+        self.away = away
+        self._observers = []
+        self.score_home = 0
+        self.score_away = 0
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def notify_observers(self):
+        score = f"{self.home} {self.score_home} - {self.score_away} {self.away}"
+        for observer in self._observers:
+            observer.update(score)
+
+    def score(self, is_home_goal):
+        if is_home_goal: self.score_home += 1
+        else: self.score_away += 1
+        self.notify_observers()
+
+class MobileApp:
+    def update(self, score):
+        print(f"[App] Neuer Stand: {score}")
+
+match = Footballmatch("Bayern", "BVB")
+match.add_observer(MobileApp())
+match.score(True)
+# → [App] Neuer Stand: Bayern 1 - 0 BVB
+```
+
+**Szenario:** Ein Tor fällt – und sofort erhalten TV, Webportal und Apps die Info. Würde man das ohne Observer Pattern machen, müsste die `Footballmatch`-Klasse alle Apps direkt kennen. Das wäre schwer zu warten und unflexibel.
+
+---
+
+## 10. Praxisprojekt – Modulares Smart Home
 
 ### 🔹 Warum?
 
@@ -1355,6 +1695,7 @@ smarthome.remove_device(licht1)    # → Licht wird entfernt
 | `multipledispatch` | Methodenüberladung nach mehreren Typen | `multipleueberladen.py`, `aufgabe2_multidispatcher.py`, `aufgabe3_multidispatch_in_Klasse.py`, `hausaufgabe1.py`, `hausaufgaben2.py` |
 | SRP | Eine Klasse = eine Aufgabe | `srp_aufgabe1.py` |
 | OCP | Erweiterbar ohne bestehenden Code zu ändern | `ocp_aufgabe1.py` |
+| Adapter Pattern | Inkompatible Schnittstellen übersetzen ohne alten Code zu verändern | `Adapter Pattern.py`, `audio_adapter.py`, `drucker_adapter.py`, `payment.py` |
 | DIP | Abhängig von Abstraktionen, nicht von konkreten Klassen | `DIP_Aufgabe1.py` |
 | Dependency Injection (Grundprinzip) | Abhängigkeiten von außen übergeben statt selbst erstellen | `Beispiel DI.py`, `Beispiel DI Lösung.py` |
 | DI mit ABC | Abstrakte Schnittstelle + Injektion für maximale Flexibilität | `Benarichtigungssystem_Mit_DI.py`, `Kaffeemaschiene_dependencyinjection.py` |
@@ -1365,6 +1706,7 @@ smarthome.remove_device(licht1)    # → Licht wird entfernt
 | Duck Typing | Kein Erben nötig – gleiche Methode genügt | `polymorphie_durch_duck_typing.py` |
 | Polymorphie mit Schnittstellen | Abstrakte Klasse erzwingt gemeinsame Methoden | `polymorhpie_mit_gemiensamen_Schnittstellen.py` |
 | Polymorphie im Spielkontext | Erweiterbar ohne Steuerlogik zu ändern | `polymorphie_mit_spielerischen_Kontext.py` |
+| Observer Pattern | Automatische Benachrichtigung bei Zustandsänderungen | `Oberserver.py`, `Fussball_Ticker.py` |
 | Praxisprojekt Smart Home | Alle Konzepte kombiniert (ABC, Kapselung, Polymorphie, SRP) | `Modulare_smart_home.py` |
 
 ---
