@@ -69,28 +69,28 @@ def deploy(cloud_provider: CloudProvider):
 
 def provider_config(config_name):
     providers = {
-        "aws": AWSProvider,
-        "azure": AzureProvider,
-        "gcp": GCPProvider
+        "AWS": AWSProvider,
+        "AZURE": AzureProvider,
+        "GCP": GCPProvider
     }
-    provider_list = providers.get(config_name)
+    provider_class = providers.get(config_name)
 
-    if not provider_list:
+    if not provider_class:
         raise ValueError(f"Unbekannter Cloud-Provider: {config_name}")
 
-    return provider_list()
+    return provider_class()
 
 if __name__ == "__main__":
-    config_list = ["aws", "azure", "gcp"]
+    config_list = ["AWS", "AZURE", "GCP"]
     for config in config_list:
-        print(f"Deploying to {config.upper()}...")
+        print(f"Deploying to {config}...")
         provider = provider_config(config)
         deploy(provider)
 
-    print("\nVersuch mit unbekanntem Provider:")
+    print("Versuch mit unbekanntem Provider:")
     try:
-        bad_list = ["was", "asure", "gco"]
-        provider = provider_config(bad_list[0])
+        bad_list = ["AWs", "AZURe", "GCp"]
+        provider = provider_config(bad_list[1])
         deploy(provider)
     except ValueError as e:
         print(e)
