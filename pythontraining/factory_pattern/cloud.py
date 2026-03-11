@@ -81,6 +81,7 @@ def provider_config(config_name):
     return provider_class()
 
 if __name__ == "__main__":
+
     config_list = ["AWS", "AZURE", "GCP"]
     for config in config_list:
         print(f"Deploying to {config}...")
