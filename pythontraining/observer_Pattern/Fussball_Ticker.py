@@ -59,5 +59,3 @@ if __name__ == "__main__":
 
     match.score(True)  # Tor für Heimteam
     match.score(False)  # Tor für Auswärtsteam
-
-

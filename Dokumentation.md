@@ -16,8 +16,7 @@
    - [OCP – Open/Closed Principle](#62-ocp--openclosed-principle)
    - [LSP – Liskov Substitution Principle](#63-lsp--liskov-substitution-principle)
    - [ISP – Interface Segregation Principle](#64-isp--interface-segregation-principle)
-   - [Adapter Pattern – Schnittstellen anpassen](#65-adapter-pattern--schnittstellen-anpassen)
-   - [DIP – Dependency Inversion Principle](#66-dip--dependency-inversion-principle)
+   - [DIP – Dependency Inversion Principle](#65-dip--dependency-inversion-principle)
 7. [Dependency Injection (DI)](#7-dependency-injection-di)
    - [DI ohne Abstraktion – das Problem](#71-di-ohne-abstraktion--das-problem)
    - [DI mit Konstruktor-Injektion – die Lösung](#72-di-mit-konstruktor-injektion--die-lösung)
@@ -30,7 +29,10 @@
    - [Polymorphie durch Duck Typing](#82-polymorphie-durch-duck-typing)
    - [Polymorphie mit gemeinsamen Schnittstellen](#83-polymorphie-mit-gemeinsamen-schnittstellen)
    - [Polymorphie im spielerischen Kontext](#84-polymorphie-im-spielerischen-kontext)
-9. [Observer Pattern](#9-observer-pattern)
+9. [Design Patterns](#9-design-patterns)
+   - [Adapter Pattern – Schnittstellen anpassen](#91-adapter-pattern--schnittstellen-anpassen)
+   - [Observer Pattern](#92-observer-pattern)
+   - [Factory Pattern](#93-factory-pattern)
 10. [Praxisprojekt – Modulares Smart Home](#10-praxisprojekt--modulares-smart-home)
 
 ---
@@ -705,188 +707,9 @@ Drei Interfaces: `Drucker`, `Scanner`, `Fax`.
 
 ---
 
-### 6.5 Adapter Pattern – Schnittstellen anpassen
 
-#### 🔹 Warum?
 
-Manchmal möchte man eine bestehende Klasse verwenden, deren Schnittstelle (Methodenname, Parameter) aber **nicht zur erwarteten Schnittstelle passt**. Statt die alte Klasse zu verändern (was gegen das OCP verstößt), erstellt man einen **Adapter** – eine Zwischenschicht, die die Schnittstelle übersetzt. Das Ergebnis: Alte und neue Klassen arbeiten zusammen, ohne dass man vorhandenen Code anfassen muss.
-
-#### 🔹 Wie?
-
-Der Adapter:
-1. Nimmt das **inkompatible Objekt** im Konstruktor entgegen.
-2. Stellt die **erwartete Schnittstelle** nach außen bereit.
-3. Delegiert intern an das inkompatible Objekt – übersetzt also die Methode.
-
-```
-Aufrufer → erwartet: methode_X()
-Adapter  → hat: methode_X() → ruft intern: methode_Y() auf
-Ziel     → hat nur: methode_Y()
-```
-
-#### 🔹 Beispiel – Steckdosen-Adapter (Grundprinzip)
-
-> Datei: `OCP_Aufgaben/Adapter Pattern.py`
-
-```python
-class EuropeanPlug:
-    def round_pin_plug(self):
-        return "Using European round pin plug"
-
-class AmericanSocket:
-    def flat_pin_socket(self):
-        return "Using American flat pin socket"
-
-class AmericanPlug:
-    def flat_pin_plug(self):
-        return "Using American flat pin plug"
-
-class EuropeanSocket:
-    def round_pin_socket(self):
-        return "Using European round pin socket"
-
-# Adapter: EUR-Stecker → US-Steckdose
-class PlugAdapter_EUR_to_US:
-    def __init__(self, use_european_plug, use_american_socket):
-        self.european_plug = use_european_plug
-        self.american_socket = use_american_socket
-
-    def wired_connector(self):
-        return self.european_plug.round_pin_plug() + " and " + self.american_socket.flat_pin_socket()
-
-# Adapter: US-Stecker → EUR-Steckdose
-class PlugAdapter_US_to_EUR:
-    def __init__(self, use_american_plug, use_european_socket):
-        self.american_plug = use_american_plug
-        self.european_socket = use_european_socket
-
-    def wired_connector(self):
-        return self.american_plug.flat_pin_plug() + " and " + self.european_socket.round_pin_socket()
-
-adapter1 = PlugAdapter_EUR_to_US(EuropeanPlug(), AmericanSocket())
-print(adapter1.wired_connector())
-# → Using European round pin plug and Using American flat pin socket
-
-adapter2 = PlugAdapter_US_to_EUR(AmericanPlug(), EuropeanSocket())
-print(adapter2.wired_connector())
-# → Using American flat pin plug and Using European round pin socket
-```
-
-**Fazit:** Weder `EuropeanPlug` noch `AmericanSocket` wurden verändert. Der Adapter fungiert als Übersetzer zwischen den beiden inkompatiblen Schnittstellen.
-
----
-
-#### 🔹 Beispiel – Audio-Adapter (Format-Konvertierung)
-
-> Datei: `OCP_Aufgaben/audio_adapter.py`
-
-```python
-class AudioPlayer:
-    def Mp3_Player(self, file):
-        print(f"Playing MP3 file: {file}")
-
-class WavPlayer:
-    def Wav_Player(self, file):
-        print(f"Playing WAV file: {file}")
-
-class AudioAdapter:
-    def __init__(self, audio_player):
-        self.audio_player = audio_player
-
-    def Play_Wav(self, file):
-        print(f"--- Adapter-Log: Starte Konvertierung von '{file}' ---")
-        print(f"--- Status: Transformiere MP3-Signal zu WAV-Signal... ---")
-        mp3_format = file.replace(".wav", ".mp3")
-        print(f"--- Adapter-Log: Konvertierung abgeschlossen. ---")
-        self.audio_player.Mp3_Player(mp3_format)
-
-adapter = AudioAdapter(AudioPlayer())
-adapter.Play_Wav("hochzeit_aufnahme.wav")
-# → Starte Konvertierung... → Playing MP3 file: hochzeit_aufnahme.mp3
-```
-
-**Szenario:** Ein neues System erwartet `Play_Wav()`, aber der vorhandene Player kennt nur `Mp3_Player()`. Der Adapter übersetzt intern das WAV-Format zu MP3 und delegiert an den bestehenden Player – **kein alter Code verändert**.
-
----
-
-#### 🔹 Beispiel – Drucker-Adapter (altes API, neues Format)
-
-> Datei: `OCP_Aufgaben/drucker_adapter.py`
-
-```python
-class Alter_Drucker:
-    def print_text(self, text_string):       # erwartet: einfachen String
-        print(f"Drucker druckt: {text_string}")
-
-class PrintAdapter:
-    def __init__(self, alter_drucker):
-        self.alter_drucker = alter_drucker
-
-    def print_document(self, doc_object):    # erwartet: Dictionary {"title", "content"}
-        text = f"{doc_object['title']} - {doc_object['content']}"
-        self.alter_drucker.print_text(text)  # wandelt Objekt → String um
-
-adapter = PrintAdapter(Alter_Drucker())
-mein_dokument = {"title": "Rechnung", "content": "Bitte zahlen Sie 50 Euro."}
-adapter.print_document(mein_dokument)
-# → Drucker druckt: Rechnung - Bitte zahlen Sie 50 Euro.
-```
-
-**Szenario:** Der alte Drucker kennt nur einfache Strings. Das neue System übergibt strukturierte Objekte (Dictionaries). Der `PrintAdapter` übersetzt das neue Format in das alte.
-
----
-
-#### 🔹 Beispiel – Zahlungs-Adapter (altes System, neue API)
-
-> Datei: `OCP_Aufgaben/payment.py`
-
-```python
-class OldPayment:
-    def pay(self, amount):
-        print(f"Zahlung von {amount} Euro mit altem System durchgeführt.")
-
-class NewpaymentSystem:
-    def make_payment(self, amount, currency):   # neue API: braucht auch Währung!
-        print(f"Zahlung von {amount} {currency} mit neuem System durchgeführt.")
-
-class PaymentAdapter:
-    def __init__(self, new_payment_system, currency):
-        self.new_payment_system = new_payment_system
-        self.currency = currency
-
-    def pay(self, amount):                       # alte Schnittstelle bleibt erhalten
-        self.new_payment_system.make_payment(amount, self.currency)
-
-adapter = PaymentAdapter(NewpaymentSystem(), "€")
-adapter.pay(100)
-# → Zahlung von 100 € mit neuem System durchgeführt.
-```
-
-**Szenario:** Der Rest des Systems ruft weiterhin `pay(amount)` auf (alte Schnittstelle). Das neue Zahlungssystem braucht aber auch eine Währungsangabe. Der `PaymentAdapter` fügt diese intern hinzu – alle bestehenden Aufrufe bleiben **unverändert**.
-
----
-
-#### 🔹 Adapter Pattern – Zusammenfassung
-
-| Begriff | Rolle |
-|---|---|
-| **Ziel (Target)** | Die Schnittstelle, die der Aufrufer erwartet |
-| **Adaptee** | Die bestehende, inkompatible Klasse |
-| **Adapter** | Übersetzt die Ziel-Schnittstelle zur Adaptee-Schnittstelle |
-
-```
-Aufrufer → ruft: pay(amount)
-              ↓
-        PaymentAdapter.pay(amount)        ← Adapter (übersetzt)
-              ↓
-        NewpaymentSystem.make_payment(amount, currency)   ← Adaptee
-```
-
-> 💡 **Verbindung zu OCP:** Der Adapter erlaubt es, neue oder inkompatible Klassen zu integrieren, **ohne bestehenden Code zu verändern** – das entspricht exakt dem Open/Closed Principle.
-
----
-
-### 6.6 DIP – Dependency Inversion Principle
+### 6.5 DIP – Dependency Inversion Principle
 
 #### 🔹 Warum?
 
@@ -1455,12 +1278,195 @@ zoo_show(show)
 
 ---
 
-## 9. Observer Pattern
+## 9. Design Patterns
 
-### 🔹 Warum?
+### 9.1 Adapter Pattern – Schnittstellen anpassen
+
+#### 🔹 Warum?
+
+Manchmal möchte man eine bestehende Klasse verwenden, deren Schnittstelle (Methodenname, Parameter) aber **nicht zur erwarteten Schnittstelle passt**. Statt die alte Klasse zu verändern (was gegen das OCP verstößt), erstellt man einen **Adapter** – eine Zwischenschicht, die die Schnittstelle übersetzt. Das Ergebnis: Alte und neue Klassen arbeiten zusammen, ohne dass man vorhandenen Code anfassen muss.
+
+#### 🔹 Wie?
+
+Der Adapter:
+1. Nimmt das **inkompatible Objekt** im Konstruktor entgegen.
+2. Stellt die **erwartete Schnittstelle** nach außen bereit.
+3. Delegiert intern an das inkompatible Objekt – übersetzt also die Methode.
+
+```
+Aufrufer → erwartet: methode_X()
+Adapter  → hat: methode_X() → ruft intern: methode_Y() auf
+Ziel     → hat nur: methode_Y()
+```
+
+#### 🔹 Beispiel – Steckdosen-Adapter (Grundprinzip)
+
+> Datei: `OCP_Aufgaben/Adapter Pattern.py`
+
+```python
+class EuropeanPlug:
+    def round_pin_plug(self):
+        return "Using European round pin plug"
+
+class AmericanSocket:
+    def flat_pin_socket(self):
+        return "Using American flat pin socket"
+
+class AmericanPlug:
+    def flat_pin_plug(self):
+        return "Using American flat pin plug"
+
+class EuropeanSocket:
+    def round_pin_socket(self):
+        return "Using European round pin socket"
+
+# Adapter: EUR-Stecker → US-Steckdose
+class PlugAdapter_EUR_to_US:
+    def __init__(self, use_european_plug, use_american_socket):
+        self.european_plug = use_european_plug
+        self.american_socket = use_american_socket
+
+    def wired_connector(self):
+        return self.european_plug.round_pin_plug() + " and " + self.american_socket.flat_pin_socket()
+
+# Adapter: US-Stecker → EUR-Steckdose
+class PlugAdapter_US_to_EUR:
+    def __init__(self, use_american_plug, use_european_socket):
+        self.american_plug = use_american_plug
+        self.european_socket = use_european_socket
+
+    def wired_connector(self):
+        return self.american_plug.flat_pin_plug() + " and " + self.european_socket.round_pin_socket()
+
+adapter1 = PlugAdapter_EUR_to_US(EuropeanPlug(), AmericanSocket())
+print(adapter1.wired_connector())
+# → Using European round pin plug and Using American flat pin socket
+
+adapter2 = PlugAdapter_US_to_EUR(AmericanPlug(), EuropeanSocket())
+print(adapter2.wired_connector())
+# → Using American flat pin plug and Using European round pin socket
+```
+
+**Fazit:** Weder `EuropeanPlug` noch `AmericanSocket` wurden verändert. Der Adapter fungiert als Übersetzer zwischen den beiden inkompatiblen Schnittstellen.
+
+---
+
+#### 🔹 Beispiel – Audio-Adapter (Format-Konvertierung)
+
+> Datei: `OCP_Aufgaben/audio_adapter.py`
+
+```python
+class AudioPlayer:
+    def Mp3_Player(self, file):
+        print(f"Playing MP3 file: {file}")
+
+class WavPlayer:
+    def Wav_Player(self, file):
+        print(f"Playing WAV file: {file}")
+
+class AudioAdapter:
+    def __init__(self, audio_player):
+        self.audio_player = audio_player
+
+    def Play_Wav(self, file):
+        print(f"--- Adapter-Log: Starte Konvertierung von '{file}' ---")
+        print(f"--- Status: Transformiere MP3-Signal zu WAV-Signal... ---")
+        mp3_format = file.replace(".wav", ".mp3")
+        print(f"--- Adapter-Log: Konvertierung abgeschlossen. ---")
+        self.audio_player.Mp3_Player(mp3_format)
+
+adapter = AudioAdapter(AudioPlayer())
+adapter.Play_Wav("hochzeit_aufnahme.wav")
+# → Starte Konvertierung... → Playing MP3 file: hochzeit_aufnahme.mp3
+```
+
+**Szenario:** Ein neues System erwartet `Play_Wav()`, aber der vorhandene Player kennt nur `Mp3_Player()`. Der Adapter übersetzt intern das WAV-Format zu MP3 und delegiert an den bestehenden Player – **kein alter Code verändert**.
+
+---
+
+#### 🔹 Beispiel – Drucker-Adapter (altes API, neues Format)
+
+> Datei: `OCP_Aufgaben/drucker_adapter.py`
+
+```python
+class Alter_Drucker:
+    def print_text(self, text_string):       # erwartet: einfachen String
+        print(f"Drucker druckt: {text_string}")
+
+class PrintAdapter:
+    def __init__(self, alter_drucker):
+        self.alter_drucker = alter_drucker
+
+    def print_document(self, doc_object):    # erwartet: Dictionary {"title", "content"}
+        text = f"{doc_object['title']} - {doc_object['content']}"
+        self.alter_drucker.print_text(text)  # wandelt Objekt → String um
+
+adapter = PrintAdapter(Alter_Drucker())
+mein_dokument = {"title": "Rechnung", "content": "Bitte zahlen Sie 50 Euro."}
+adapter.print_document(mein_dokument)
+# → Drucker druckt: Rechnung - Bitte zahlen Sie 50 Euro.
+```
+
+**Szenario:** Der alte Drucker kennt nur einfache Strings. Das neue System übergibt strukturierte Objekte (Dictionaries). Der `PrintAdapter` übersetzt das neue Format in das alte.
+
+---
+
+#### 🔹 Beispiel – Zahlungs-Adapter (altes System, neue API)
+
+> Datei: `OCP_Aufgaben/payment.py`
+
+```python
+class OldPayment:
+    def pay(self, amount):
+        print(f"Zahlung von {amount} Euro mit altem System durchgeführt.")
+
+class NewpaymentSystem:
+    def make_payment(self, amount, currency):   # neue API: braucht auch Währung!
+        print(f"Zahlung von {amount} {currency} mit neuem System durchgeführt.")
+
+class PaymentAdapter:
+    def __init__(self, new_payment_system, currency):
+        self.new_payment_system = new_payment_system
+        self.currency = currency
+
+    def pay(self, amount):                       # alte Schnittstelle bleibt erhalten
+        self.new_payment_system.make_payment(amount, self.currency)
+
+adapter = PaymentAdapter(NewpaymentSystem(), "€")
+adapter.pay(100)
+# → Zahlung von 100 € mit neuem System durchgeführt.
+```
+
+**Szenario:** Der Rest des Systems ruft weiterhin `pay(amount)` auf (alte Schnittstelle). Das neue Zahlungssystem braucht aber auch eine Währungsangabe. Der `PaymentAdapter` fügt diese intern hinzu – alle bestehenden Aufrufe bleiben **unverändert**.
+
+---
+
+#### 🔹 Adapter Pattern – Zusammenfassung
+
+| Begriff | Rolle |
+|---|---|
+| **Ziel (Target)** | Die Schnittstelle, die der Aufrufer erwartet |
+| **Adaptee** | Die bestehende, inkompatible Klasse |
+| **Adapter** | Übersetzt die Ziel-Schnittstelle zur Adaptee-Schnittstelle |
+
+```
+Aufrufer → ruft: pay(amount)
+              ↓
+        PaymentAdapter.pay(amount)        ← Adapter (übersetzt)
+              ↓
+        NewpaymentSystem.make_payment(amount, currency)   ← Adaptee
+```
+
+> 💡 **Verbindung zu OCP:** Der Adapter erlaubt es, neue oder inkompatible Klassen zu integrieren, **ohne bestehenden Code zu verändern** – das entspricht exakt dem Open/Closed Principle.
+
+---
+
+### 9.2 Observer Pattern
+
+#### 🔹 Warum?
 Wenn sich der Zustand eines Objekts ändert (z.B. Wetterdaten, Spielstand), sollen alle davon abhängigen Objekte (Displays, Apps) automatisch benachrichtigt werden. Das Observer Pattern entkoppelt das beobachtbare Objekt (Subject) von den Beobachtern (Observers) – das Subject kennt seine Beobachter nicht persönlich, sondern nur über eine gemeinsame Schnittstelle.
 
-### 🔹 Wie?
+#### 🔹 Wie?
 - **Subject** (Beobachtbares Objekt): Verwaltet eine Liste von Observern. Bietet Methoden zum An- und Abmelden (`attach`, `detach`) und Benachrichtigen (`notify`).
 - **Observer** (Beobachter): Definiert eine Schnittstelle (`update`), die vom Subject aufgerufen wird.
 - **ConcreteSubject & ConcreteObserver**: Implementieren die Logik.
@@ -1475,7 +1481,7 @@ Wenn sich der Zustand eines Objekts ändert (z.B. Wetterdaten, Spielstand), soll
     +----------------+
 ```
 
-### 🔹 Beispiel – Wetterstation
+#### 🔹 Beispiel – Wetterstation
 > Datei: `observer_Pattern/Oberserver.py`
 
 ```python
@@ -1522,7 +1528,7 @@ station.set_temperature(25)
 ```
 **Erläuterung:** Die Wetterstation benachrichtigt alle angemeldeten Beobachter über Temperaturänderungen, ohne zu wissen, wer oder was sie sind.
 
-### 🔹 Beispiel – Fußball-Ticker
+#### 🔹 Beispiel – Fußball-Ticker
 > Datei: `observer_Pattern/Fussball_Ticker.py`
 
 ```python
@@ -1558,6 +1564,114 @@ match.score(True)
 ```
 
 **Szenario:** Ein Tor fällt – und sofort erhalten TV, Webportal und Apps die Info. Würde man das ohne Observer Pattern machen, müsste die `Footballmatch`-Klasse alle Apps direkt kennen. Das wäre schwer zu warten und unflexibel.
+
+---
+
+### 9.3 Factory Pattern
+
+#### 🔹 Warum?
+
+Wenn man Objekte erstellen muss, aber den genauen Typ erst zur Laufzeit kennt oder die Erstellung komplex ist. Die **Factory** kapselt die Erstellungslogik, sodass der restliche Code nicht wissen muss, *wie* oder *welches* konkrete Objekt erstellt wird. Das entkoppelt die Objekterstellung von der Verwendung.
+
+#### 🔹 Wie?
+
+Man definiert eine gemeinsame Schnittstelle (meist eine abstrakte Basisklasse) und eine **Factory-Klasse** (oder eine statische Methode), die je nach Parameter die passende konkrete Instanz erzeugt und zurückgibt.
+
+#### 🔹 Beispiel – Einfache Fahrzeug-Factory
+
+> Datei: `factory_pattern/Factory-Pattern.py`
+
+```python
+from abc import ABC, abstractmethod
+
+# 1. Definiere die Produktschnittstelle
+class Fahrzeug(ABC):
+    @abstractmethod
+    def bremsen(self):
+        pass
+
+# 2. Definiere konkrete Produkte
+class Auto(Fahrzeug):
+    def __init__(self, f_id):
+        if f_id == 1234:
+            self.farbe = "rot"
+        else:
+            raise RuntimeError("Fälschung! Nur über Factory erlaubt.")
+
+    def bremsen(self):
+         print("Vollbremsung")
+
+# 3. Definiere die Factory-Klasse
+class FahrzeugFactory:
+    @staticmethod
+    def produce_fahrzeug(vehicle_type, factory_id=1234):
+        if vehicle_type == 'car':
+            return Auto(factory_id)
+        else:
+            raise ValueError(f"Fahrzeugtyp {vehicle_type} ist unbekannt")
+
+# Verwendung
+factory = FahrzeugFactory()
+car = factory.produce_fahrzeug('car')  # Erstellt ein Auto
+car.bremsen()                          # → Vollbremsung
+
+# car1 = Auto()  # → Würde Fehler werfen (Schutzmechanismus)
+```
+
+**Szenario:** Der Nutzer fordert ein "Auto" oder "LKW" an – die Factory liefert das richtige Objekt, ohne dass der Nutzer wissen muss, wie `Auto` genau konstruiert wird (z. B. mit `factory_id`).
+
+---
+
+#### 🔹 Beispiel – Pizza-Factory (mit Registrierung)
+
+> Datei: `factory_pattern/Pizza_fabrik.py`
+
+Hier werden neue Pizza-Sorten dynamisch registriert, statt fest in `if/else`-Blöcken zu stehen (erfüllt OCP besser).
+
+```python
+class PizzaFactory:
+    Moegliche_Pizzas = {}
+
+    @classmethod
+    def register_pizza(cls, pizza_type, pizza_class):
+        cls.Moegliche_Pizzas[pizza_type] = pizza_class
+        print("Pizza registriert: ", pizza_type)
+
+    @classmethod
+    def create_pizza(cls, pizza_type):
+        pizza_class = cls.Moegliche_Pizzas.get(pizza_type)
+        if pizza_class:
+            return pizza_class()
+        else:
+            raise ValueError("Pizza unbekannt")
+```
+
+**Vorteil:** Man kann neue Pizza-Klassen hinzufügen (`register_pizza("Funghi", FunghiPizza)`), ohne die Factory-Klasse selbst ändern zu müssen.
+
+---
+
+#### 🔹 Beispiel – Cloud Provider (Abstract Factory / Factory Method)
+
+> Datei: `factory_pattern/cloud.py`
+
+Jeder Cloud-Anbieter (AWS, Azure) hat eigene Instanzen (`AWSInstance`, `AzureInstance`), die aber alle das gleiche Interface erfüllen (`CloudInstance`).
+
+```python
+class CloudProvider(ABC):
+    @abstractmethod
+    def create_instance(self):
+        pass
+
+class AWSProvider(CloudProvider):
+    def create_instance(self):
+        return AWSInstance()   # Erstellt AWS-spezifisches Objekt
+
+class AzureProvider(CloudProvider):
+    def create_instance(self):
+        return AzureInstance() # Erstellt Azure-spezifisches Objekt
+```
+
+**Szenario:** Der Code arbeitet nur mit `CloudProvider` und `CloudInstance`. Ob dahinter AWS oder Azure steckt, ist für die Geschäftslogik egal. Man tauscht einfach den Provider aus.
 
 ---
 
@@ -1707,6 +1821,7 @@ smarthome.remove_device(licht1)    # → Licht wird entfernt
 | Polymorphie mit Schnittstellen | Abstrakte Klasse erzwingt gemeinsame Methoden | `polymorhpie_mit_gemiensamen_Schnittstellen.py` |
 | Polymorphie im Spielkontext | Erweiterbar ohne Steuerlogik zu ändern | `polymorphie_mit_spielerischen_Kontext.py` |
 | Observer Pattern | Automatische Benachrichtigung bei Zustandsänderungen | `Oberserver.py`, `Fussball_Ticker.py` |
+| Factory Pattern | Objekterstellung kapseln und entkoppeln | `Factory-Pattern.py`, `Pizza_fabrik.py`, `cloud.py` |
 | Praxisprojekt Smart Home | Alle Konzepte kombiniert (ABC, Kapselung, Polymorphie, SRP) | `Modulare_smart_home.py` |
 
 ---
