@@ -27,7 +27,12 @@ class NotificationService:
         self.sender = sender
 
     def send_notification(self, message):
+        # Wir tun so, als würde hier noch Logik passieren
+        if not message:
+            return "Fehler: Nachricht leer"
+
         self.sender.send_notification(message)
+        return "Erfolgreich versendet"
 
 
 if __name__ == "__main__":
