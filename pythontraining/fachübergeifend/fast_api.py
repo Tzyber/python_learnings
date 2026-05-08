@@ -17,7 +17,7 @@ version = "1.0.0"
 
 Verbindung = {
 'host': os.getenv('DB_HOST', 'localhost'),
-'dbname': os.getenv('DB_NAME', 'klinik'),
+'dbname': os.getenv('DB_NAME', 'erp'),
 'user': os.getenv('DB_USER', 'postgres'),
 'password': os.getenv('DB_PASSWORD', 'Awb2tz'),
 }
